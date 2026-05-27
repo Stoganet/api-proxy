@@ -1,0 +1,9 @@
+.git
+docs
+*.md
+.github
+dist
+compose
+internal/gen
+coverage.out
+*.sqlite
