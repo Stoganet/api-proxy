@@ -1,0 +1,43 @@
+package config
+
+import (
+	"testing"
+)
+
+func TestLoad_MissingRequiredVarFatal(t *testing.T) {
+	t.Setenv("JELLYFIN_URL", "")
+	_, err := Load(envMap{})
+	if err == nil {
+		t.Fatal("expected error for missing JELLYFIN_URL")
+	}
+}
+
+func TestLoad_AllRequiredPresent(t *testing.T) {
+	env := envMap{
+		"JELLYFIN_URL":     "http://jellyfin:8096",
+		"JELLYFIN_API_KEY": "abc",
+		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
+		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"LISTEN_ADDR":      ":8080",
+	}
+	c, err := Load(env)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	if c.JellyfinURL != "http://jellyfin:8096" {
+		t.Errorf("got %q", c.JellyfinURL)
+	}
+}
+
+func TestLoad_JWTKeyTooShort(t *testing.T) {
+	env := envMap{
+		"JELLYFIN_URL":     "http://jellyfin:8096",
+		"JELLYFIN_API_KEY": "abc",
+		"JWT_SIGNING_KEY":  "short",
+		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"LISTEN_ADDR":      ":8080",
+	}
+	if _, err := Load(env); err == nil {
+		t.Fatal("expected error for short JWT_SIGNING_KEY")
+	}
+}
