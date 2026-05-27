@@ -1,0 +1,211 @@
+openapi: 3.1.0
+info:
+  title: Stoganet api-proxy
+  version: 0.1.0
+  description: Aggregating backend for Stoganet client apps. Current surface = auth + healthz.
+
+servers:
+  - url: https://api.stoganet.com
+
+components:
+  securitySchemes:
+    BearerJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required: [error, request_id]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_credentials
+                - account_locked
+                - token_expired
+                - token_invalid
+                - jellyfin_session_expired
+                - backend_unavailable
+                - rate_limited
+                - validation_failed
+                - internal
+            message: { type: string }
+            details: { nullable: true }
+        request_id: { type: string }
+
+    User:
+      type: object
+      required: [id, email, display_name]
+      properties:
+        id:           { type: string }
+        email:        { type: string }
+        display_name: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:     { type: string, minLength: 1 }
+        password:     { type: string, minLength: 1 }
+        device_label: { type: string, nullable: true }
+
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, user]
+      properties:
+        access_token:  { type: string }
+        refresh_token: { type: string }
+        user:          { $ref: '#/components/schemas/User' }
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    QuickConnectStartResponse:
+      type: object
+      required: [code, poll_token]
+      properties:
+        code:       { type: string }
+        poll_token: { type: string }
+
+    QuickConnectPollRequest:
+      type: object
+      required: [poll_token]
+      properties:
+        poll_token: { type: string }
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      operationId: getHealthz
+      responses:
+        '200':
+          description: Process alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+
+  /auth/login:
+    post:
+      summary: Username + password login (proxied through Jellyfin AuthenticateByName)
+      operationId: postAuthLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401':
+          description: Bad credentials
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '423':
+          description: Account locked due to repeated failures
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Jellyfin unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/refresh:
+    post:
+      summary: Refresh token rotation
+      operationId: postAuthRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401':
+          description: Refresh token invalid / reused / expired
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/logout:
+    post:
+      summary: Revoke a refresh token
+      operationId: postAuthLogout
+      security: [ { BearerJWT: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Revoked }
+
+  /auth/logout/all:
+    post:
+      summary: Revoke all refresh tokens for the user
+      operationId: postAuthLogoutAll
+      security: [ { BearerJWT: [] } ]
+      responses:
+        '204': { description: Revoked }
+
+  /auth/quick-connect/start:
+    post:
+      summary: Begin a Jellyfin Quick Connect handshake
+      operationId: postAuthQuickConnectStart
+      responses:
+        '200':
+          description: Code issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuickConnectStartResponse' }
+        '503':
+          description: Jellyfin unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/quick-connect/poll:
+    post:
+      summary: Poll Quick Connect approval
+      operationId: postAuthQuickConnectPoll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuickConnectPollRequest' }
+      responses:
+        '200':
+          description: Approved; token pair issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '202':
+          description: Still waiting
+        '410':
+          description: Expired or rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
