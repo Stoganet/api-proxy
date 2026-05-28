@@ -93,3 +93,25 @@ func (s *Service) Refresh(ctx context.Context, plaintext string) (*TokenPair, er
 }
 
 func newUUID() string { return uuid.NewString() }
+
+func (s *Service) Logout(ctx context.Context, plaintext string) error {
+	hash := sha256Hex(plaintext)
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM refresh_tokens WHERE token_hash = ?`, hash,
+	)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrTokenInvalid
+	}
+	return nil
+}
+
+func (s *Service) LogoutAll(ctx context.Context, userID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM refresh_tokens WHERE user_id = ?`, userID,
+	)
+	return err
+}
