@@ -120,5 +120,3 @@ func sha256Hex(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// TODO
-func newUUID() string { return "" }
