@@ -39,7 +39,7 @@ func TestQuickConnectAuthenticate_Approved(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"AccessToken": "tok-qc",
-			"User": map[string]any{"Id": "jf-user-1", "Name": "alice"},
+			"User":        map[string]any{"Id": "jf-user-1", "Name": "alice"},
 		})
 	}))
 	defer s.Close()
