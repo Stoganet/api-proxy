@@ -22,14 +22,13 @@ func (s *Service) Refresh(ctx context.Context, plaintext string) (*TokenPair, er
 		id        string
 		userID    string
 		expiresAt int64
-		usedAt    sql.NullInt64
 		deviceLbl sql.NullString
 	)
 	err = tx.QueryRowContext(ctx,
-		`SELECT id, user_id, expires_at, used_at, device_label
+		`SELECT id, user_id, expires_at, device_label
 		 FROM refresh_tokens WHERE token_hash = ?`,
 		hash,
-	).Scan(&id, &userID, &expiresAt, &usedAt, &deviceLbl)
+	).Scan(&id, &userID, &expiresAt, &deviceLbl)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrTokenInvalid
 	}
@@ -39,7 +38,14 @@ func (s *Service) Refresh(ctx context.Context, plaintext string) (*TokenPair, er
 	if expiresAt < now {
 		return nil, ErrTokenExpired
 	}
-	if usedAt.Valid {
+	res, err := tx.ExecContext(ctx,
+		`UPDATE refresh_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL`, now, id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
 		if _, err := tx.ExecContext(ctx,
 			`DELETE FROM refresh_tokens WHERE user_id = ?`, userID,
 		); err != nil {
@@ -49,12 +55,6 @@ func (s *Service) Refresh(ctx context.Context, plaintext string) (*TokenPair, er
 			return nil, err
 		}
 		return nil, ErrTokenReused
-	}
-
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE refresh_tokens SET used_at = ? WHERE id = ?`, now, id,
-	); err != nil {
-		return nil, err
 	}
 
 	var u User
