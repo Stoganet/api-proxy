@@ -8,9 +8,9 @@ import (
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 	return NewService(Options{
-		SignKey:    []byte("01234567890123456789012345678901"),
-		Clock:      func() time.Time { return time.Unix(1_700_000_000, 0) },
-		AccessTTL:  time.Hour,
+		SignKey:   []byte("01234567890123456789012345678901"),
+		Clock:     func() time.Time { return time.Unix(1_700_000_000, 0) },
+		AccessTTL: time.Hour,
 	})
 }
 

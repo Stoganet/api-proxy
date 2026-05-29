@@ -28,7 +28,7 @@ func newLoginSvc(t *testing.T, jf JellyfinAuthenticator) *Service {
 	return NewService(Options{
 		DB:       d.DB,
 		Jellyfin: jf,
-		SignKey:   []byte("01234567890123456789012345678901"),
+		SignKey:  []byte("01234567890123456789012345678901"),
 		Clock:    func() time.Time { return time.Unix(1_700_000_000, 0) },
 	})
 }

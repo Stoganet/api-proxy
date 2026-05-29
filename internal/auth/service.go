@@ -37,10 +37,10 @@ type Service struct {
 type Options struct {
 	DB         *sql.DB
 	Jellyfin   JellyfinAuthenticator
-	SignKey     []byte
-	Clock       Clock
-	AccessTTL   time.Duration
-	RefreshTTL  time.Duration
+	SignKey    []byte
+	Clock      Clock
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
 }
 
 func NewService(opts Options) *Service {

@@ -23,7 +23,7 @@ func newLockoutSvc(t *testing.T, now time.Time) *Service {
 	d := openTestDB(t)
 	return NewService(Options{
 		DB:      d.DB,
-		SignKey:  []byte("01234567890123456789012345678901"),
+		SignKey: []byte("01234567890123456789012345678901"),
 		Clock:   func() time.Time { return now },
 	})
 }
