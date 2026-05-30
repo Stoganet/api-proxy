@@ -3,12 +3,14 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	stdhttp "net/http"
 	"strings"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
 	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type authService interface {
@@ -68,7 +70,11 @@ func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
 			tok := strings.TrimPrefix(h, "Bearer ")
 			claims, err := svc.VerifyJWT(tok)
 			if err != nil {
-				writeError(w, r, stdhttp.StatusUnauthorized, gen.TokenExpired, "invalid or expired token")
+				code := gen.TokenInvalid
+				if errors.Is(err, jwt.ErrTokenExpired) {
+					code = gen.TokenExpired
+				}
+				writeError(w, r, stdhttp.StatusUnauthorized, code, "invalid or expired token")
 				return nil, nil //nolint:nilerr // error handled by writing 401 directly
 			}
 			ctx = context.WithValue(ctx, ctxUserID, claims.UserID)
