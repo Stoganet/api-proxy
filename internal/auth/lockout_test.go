@@ -2,13 +2,14 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/Stoganet/api-proxy/internal/db"
 )
 
-func openTestDB(t *testing.T) *db.DB {
+func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	d, err := db.Open(context.Background(), ":memory:")
 	if err != nil {
@@ -22,7 +23,7 @@ func newLockoutSvc(t *testing.T, now time.Time) *Service {
 	t.Helper()
 	d := openTestDB(t)
 	return NewService(Options{
-		DB:      d.DB,
+		DB:      d,
 		SignKey: []byte("01234567890123456789012345678901"),
 		Clock:   func() time.Time { return now },
 	})
