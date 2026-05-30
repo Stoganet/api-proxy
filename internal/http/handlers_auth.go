@@ -3,12 +3,13 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
 	"github.com/Stoganet/api-proxy/internal/gen"
 )
 
-func (s *Server) GetHealthz(ctx context.Context, _ gen.GetHealthzRequestObject) (gen.GetHealthzResponseObject, error) {
+func (s *Server) GetHealthz(_ context.Context, _ gen.GetHealthzRequestObject) (gen.GetHealthzResponseObject, error) {
 	return gen.GetHealthz200JSONResponse{Status: gen.Ok}, nil
 }
 
@@ -50,7 +51,10 @@ func (s *Server) PostAuthLogout(ctx context.Context, request gen.PostAuthLogoutR
 }
 
 func (s *Server) PostAuthLogoutAll(ctx context.Context, _ gen.PostAuthLogoutAllRequestObject) (gen.PostAuthLogoutAllResponseObject, error) {
-	uid, _ := ctx.Value(ctxUserID).(string)
+	uid, ok := ctx.Value(ctxUserID).(string)
+	if !ok || uid == "" {
+		return nil, fmt.Errorf("ctxUserID missing — JWT middleware must run before this handler")
+	}
 	if err := s.auth.LogoutAll(ctx, uid); err != nil {
 		return nil, err
 	}

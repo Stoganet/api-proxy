@@ -12,7 +12,7 @@ import (
 )
 
 func TestRequestIDMiddleware_SetsHeader(t *testing.T) {
-	h := RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := RequestID(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

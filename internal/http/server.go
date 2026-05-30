@@ -11,8 +11,18 @@ import (
 	"github.com/Stoganet/api-proxy/internal/gen"
 )
 
+type authService interface {
+	Login(ctx context.Context, username, password string, deviceLabel *string) (*auth.TokenPair, error)
+	Refresh(ctx context.Context, plaintext string) (*auth.TokenPair, error)
+	Logout(ctx context.Context, plaintext string) error
+	LogoutAll(ctx context.Context, userID string) error
+	QuickConnectStart(ctx context.Context) (*auth.QuickConnectStartOut, error)
+	QuickConnectPoll(ctx context.Context, pollToken string) (*auth.TokenPair, error)
+	VerifyJWT(token string) (*auth.Claims, error)
+}
+
 type Server struct {
-	auth   *auth.Service
+	auth   authService
 	logger *slog.Logger
 }
 
@@ -23,6 +33,7 @@ func NewServer(authSvc *auth.Service, logger *slog.Logger) stdhttp.Handler {
 		jwtStrictMiddleware(authSvc),
 	}, gen.StrictHTTPServerOptions{
 		ResponseErrorHandlerFunc: func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+			s.logger.ErrorContext(r.Context(), "handler error", "err", err, "request_id", requestIDFromCtx(r.Context()))
 			var e gen.Error
 			e.Error.Code = gen.Internal
 			e.Error.Message = "internal error"
@@ -37,10 +48,9 @@ func NewServer(authSvc *auth.Service, logger *slog.Logger) stdhttp.Handler {
 }
 
 // jwtStrictMiddleware enforces Bearer JWT auth on logout operations only.
-// It runs before the handler and writes a 401 directly if the token is
-// missing or invalid, then returns nil to stop the strict handler from
+// Writes 401 directly and returns nil to prevent the strict handler from
 // writing a second response.
-func jwtStrictMiddleware(authSvc *auth.Service) gen.StrictMiddlewareFunc {
+func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
 	protected := map[string]bool{
 		"postAuthLogout":    true,
 		"postAuthLogoutAll": true,
@@ -52,14 +62,14 @@ func jwtStrictMiddleware(authSvc *auth.Service) gen.StrictMiddlewareFunc {
 		return func(ctx context.Context, w stdhttp.ResponseWriter, r *stdhttp.Request, req any) (any, error) {
 			h := r.Header.Get("Authorization")
 			if !strings.HasPrefix(h, "Bearer ") {
-				writeError(w, r, stdhttp.StatusUnauthorized, gen.TokenExpired, "missing bearer token")
+				writeError(w, r, stdhttp.StatusUnauthorized, gen.TokenInvalid, "missing bearer token")
 				return nil, nil
 			}
 			tok := strings.TrimPrefix(h, "Bearer ")
-			claims, err := authSvc.VerifyJWT(tok)
+			claims, err := svc.VerifyJWT(tok)
 			if err != nil {
 				writeError(w, r, stdhttp.StatusUnauthorized, gen.TokenExpired, "invalid or expired token")
-				return nil, nil
+				return nil, nil //nolint:nilerr // error handled by writing 401 directly
 			}
 			ctx = context.WithValue(ctx, ctxUserID, claims.UserID)
 			ctx = context.WithValue(ctx, ctxJFUserID, claims.JFUserID)
