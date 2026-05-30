@@ -32,6 +32,11 @@ func (s *Service) issueJWT(userID, email, jfUserID string) (string, error) {
 	return tok.SignedString(s.signKey)
 }
 
+// IssueAccessTokenForTest is a test seam; production code calls issueJWT internally.
+func (s *Service) IssueAccessTokenForTest(userID, email, jfUserID string) (string, error) {
+	return s.issueJWT(userID, email, jfUserID)
+}
+
 func (s *Service) VerifyJWT(token string) (*Claims, error) {
 	parsed, err := jwt.ParseWithClaims(token, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
