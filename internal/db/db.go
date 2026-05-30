@@ -12,11 +12,7 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-type DB struct {
-	*sql.DB
-}
-
-func Open(ctx context.Context, path string) (*DB, error) {
+func Open(ctx context.Context, path string) (*sql.DB, error) {
 	dsn := path + "?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
 	sqldb, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -28,7 +24,7 @@ func Open(ctx context.Context, path string) (*DB, error) {
 	if err := applyMigrations(ctx, sqldb); err != nil {
 		return nil, err
 	}
-	return &DB{sqldb}, nil
+	return sqldb, nil
 }
 
 func applyMigrations(ctx context.Context, sqldb *sql.DB) error {
