@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/Stoganet/api-proxy/internal/catalog"
@@ -15,7 +16,7 @@ func (s *Server) GetCatalogId(ctx context.Context, req gen.GetCatalogIdRequestOb
 
 	jfTok, err := s.auth.GetJellyfinToken(ctx, userID)
 	if err != nil {
-		return gen.GetCatalogId503JSONResponse(apiError(ctx, gen.BackendUnavailable, "could not retrieve session")), nil //nolint:nilerr // error encoded in response
+		return nil, fmt.Errorf("GetJellyfinToken: %w", err)
 	}
 
 	d, err := s.catalog.GetItem(ctx, jfUserID, jfTok, req.Id)
@@ -40,9 +41,11 @@ func (s *Server) GetCatalog(ctx context.Context, req gen.GetCatalogRequestObject
 		opts.Limit = *req.Params.Limit
 	}
 	if req.Params.Cursor != nil {
-		if n, err := strconv.Atoi(*req.Params.Cursor); err == nil {
-			opts.StartIndex = n
+		n, err := strconv.Atoi(*req.Params.Cursor)
+		if err != nil {
+			return gen.GetCatalog400JSONResponse(apiError(ctx, gen.ValidationFailed, "cursor must be a numeric string")), nil //nolint:nilerr // error encoded in response
 		}
+		opts.StartIndex = n
 	}
 
 	result, err := s.catalog.List(ctx, jfUserID, opts)

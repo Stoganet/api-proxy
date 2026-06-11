@@ -37,6 +37,7 @@ type GetItemsOpts struct {
 	Type       string // "Movie" or "Series"; empty = both
 	Limit      int
 	StartIndex int
+	ProviderID string // e.g. "Tmdb.603"; sets AnyProviderIdEquals when non-empty
 }
 
 func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, error) {
@@ -88,6 +89,9 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 	}
 	if opts.StartIndex > 0 {
 		q.Set("StartIndex", fmt.Sprintf("%d", opts.StartIndex))
+	}
+	if opts.ProviderID != "" {
+		q.Set("AnyProviderIdEquals", opts.ProviderID)
 	}
 	req.URL.RawQuery = q.Encode()
 

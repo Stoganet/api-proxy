@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 )
@@ -24,16 +25,52 @@ func NewService(jf JellyfinClient, jellyfinBaseURL string) *Service {
 	return &Service{jf: jf, baseURL: jellyfinBaseURL}
 }
 
-func (s *Service) GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*Detail, error) {
-	item, err := s.jf.GetItem(ctx, jfUserID, itemID)
+func (s *Service) GetItem(ctx context.Context, jfUserID, jfToken, catalogID string) (*Detail, error) {
+	item, err := s.resolveItem(ctx, jfUserID, catalogID)
 	if err != nil {
-		if errors.Is(err, jellyfin.ErrItemNotFound) {
-			return nil, ErrItemNotFound
-		}
-		return nil, fmt.Errorf("catalog GetItem: %w", err)
+		return nil, err
 	}
 	d := toDetail(*item, s.baseURL, jfToken, jfUserID)
 	return &d, nil
+}
+
+// resolveItem translates a catalog ID to a Jellyfin item.
+//
+// Catalog IDs have two forms:
+//   - "jf:{jellyfinUUID}"      → direct Jellyfin lookup after stripping prefix
+//   - "tmdb:{type}:{tmdbID}"   → provider-ID search via AnyProviderIdEquals
+func (s *Service) resolveItem(ctx context.Context, jfUserID, catalogID string) (*jellyfin.Item, error) {
+	if jfID, ok := strings.CutPrefix(catalogID, "jf:"); ok {
+		item, err := s.jf.GetItem(ctx, jfUserID, jfID)
+		if err != nil {
+			if errors.Is(err, jellyfin.ErrItemNotFound) {
+				return nil, ErrItemNotFound
+			}
+			return nil, fmt.Errorf("catalog resolveItem: %w", err)
+		}
+		return item, nil
+	}
+
+	if strings.HasPrefix(catalogID, "tmdb:") {
+		parts := strings.SplitN(catalogID, ":", 3)
+		if len(parts) != 3 {
+			return nil, ErrItemNotFound
+		}
+		providerID := "Tmdb." + parts[2]
+		result, err := s.jf.GetItems(ctx, jfUserID, jellyfin.GetItemsOpts{
+			ProviderID: providerID,
+			Limit:      1,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("catalog resolveItem: %w", err)
+		}
+		if len(result.Items) == 0 {
+			return nil, ErrItemNotFound
+		}
+		return &result.Items[0], nil
+	}
+
+	return nil, ErrItemNotFound
 }
 
 func (s *Service) List(ctx context.Context, jfUserID string, opts ListOpts) (*ListResult, error) {
