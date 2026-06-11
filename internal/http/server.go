@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
+	"github.com/Stoganet/api-proxy/internal/catalog"
 	"github.com/Stoganet/api-proxy/internal/gen"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -21,15 +22,22 @@ type authService interface {
 	QuickConnectStart(ctx context.Context) (*auth.QuickConnectStartOut, error)
 	QuickConnectPoll(ctx context.Context, pollToken string) (*auth.TokenPair, error)
 	VerifyJWT(token string) (*auth.Claims, error)
+	GetJellyfinToken(ctx context.Context, userID string) (string, error)
+}
+
+type catalogService interface {
+	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*catalog.Detail, error)
+	List(ctx context.Context, jfUserID string, opts catalog.ListOpts) (*catalog.ListResult, error)
 }
 
 type Server struct {
-	auth   authService
-	logger *slog.Logger
+	auth    authService
+	catalog catalogService
+	logger  *slog.Logger
 }
 
-func NewServer(authSvc *auth.Service, logger *slog.Logger) stdhttp.Handler {
-	s := &Server{auth: authSvc, logger: logger}
+func NewServer(authSvc *auth.Service, catalogSvc *catalog.Service, logger *slog.Logger) stdhttp.Handler {
+	s := &Server{auth: authSvc, catalog: catalogSvc, logger: logger}
 
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
 		jwtStrictMiddleware(authSvc),
@@ -49,16 +57,20 @@ func NewServer(authSvc *auth.Service, logger *slog.Logger) stdhttp.Handler {
 	return RequestID(Logging(logger)(gen.Handler(strict)))
 }
 
-// jwtStrictMiddleware enforces Bearer JWT auth on logout operations only.
-// Writes 401 directly and returns nil to prevent the strict handler from
-// writing a second response.
+// jwtStrictMiddleware enforces Bearer JWT auth on all endpoints except the
+// public auth and healthz operations. Writes 401 directly and returns nil to
+// prevent the strict handler from writing a second response.
 func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
-	protected := map[string]bool{
-		"postAuthLogout":    true,
-		"postAuthLogoutAll": true,
+	// public lists operations that do NOT require a JWT.
+	public := map[string]bool{
+		"getHealthz":                 true,
+		"postAuthLogin":              true,
+		"postAuthRefresh":            true,
+		"postAuthQuickConnectStart":  true,
+		"postAuthQuickConnectPoll":   true,
 	}
 	return func(f gen.StrictHandlerFunc, operationID string) gen.StrictHandlerFunc {
-		if !protected[operationID] {
+		if public[operationID] {
 			return f
 		}
 		return func(ctx context.Context, w stdhttp.ResponseWriter, r *stdhttp.Request, req any) (any, error) {
