@@ -36,10 +36,10 @@ func TestGetJellyfinToken_ReturnsTokenAfterLogin(t *testing.T) {
 func TestGetJellyfinToken_UnknownUser_ReturnsError(t *testing.T) {
 	d := openTestDB(t)
 	s := NewService(Options{
-		DB:      d,
+		DB:       d,
 		Jellyfin: &fakeJF{},
 		SignKey:  []byte("01234567890123456789012345678901"),
-		Clock:   func() time.Time { return time.Unix(1_700_000_000, 0) },
+		Clock:    func() time.Time { return time.Unix(1_700_000_000, 0) },
 	})
 
 	_, err := s.GetJellyfinToken(context.Background(), "no-such-id")

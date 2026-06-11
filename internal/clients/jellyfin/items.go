@@ -125,18 +125,18 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 }
 
 type jfItemResponse struct {
-	ID              string            `json:"Id"`
-	Name            string            `json:"Name"`
-	Type            string            `json:"Type"`
-	ProductionYear  int               `json:"ProductionYear"`
-	Overview        string            `json:"Overview"`
-	Genres          []string          `json:"Genres"`
-	RunTimeTicks    int64             `json:"RunTimeTicks"`
-	ImageTags       map[string]string `json:"ImageTags"`
-	BackdropTags    []string          `json:"BackdropImageTags"`
-	ProviderIDs     map[string]string `json:"ProviderIds"`
-	ChildCount      int               `json:"ChildCount"`
-	People          []struct {
+	ID             string            `json:"Id"`
+	Name           string            `json:"Name"`
+	Type           string            `json:"Type"`
+	ProductionYear int               `json:"ProductionYear"`
+	Overview       string            `json:"Overview"`
+	Genres         []string          `json:"Genres"`
+	RunTimeTicks   int64             `json:"RunTimeTicks"`
+	ImageTags      map[string]string `json:"ImageTags"`
+	BackdropTags   []string          `json:"BackdropImageTags"`
+	ProviderIDs    map[string]string `json:"ProviderIds"`
+	ChildCount     int               `json:"ChildCount"`
+	People         []struct {
 		Name string `json:"Name"`
 		Type string `json:"Type"`
 	} `json:"People"`

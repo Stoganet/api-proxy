@@ -63,11 +63,11 @@ func NewServer(authSvc *auth.Service, catalogSvc *catalog.Service, logger *slog.
 func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
 	// public lists operations that do NOT require a JWT.
 	public := map[string]bool{
-		"getHealthz":                 true,
-		"postAuthLogin":              true,
-		"postAuthRefresh":            true,
-		"postAuthQuickConnectStart":  true,
-		"postAuthQuickConnectPoll":   true,
+		"getHealthz":                true,
+		"postAuthLogin":             true,
+		"postAuthRefresh":           true,
+		"postAuthQuickConnectStart": true,
+		"postAuthQuickConnectPoll":  true,
 	}
 	return func(f gen.StrictHandlerFunc, operationID string) gen.StrictHandlerFunc {
 		if public[operationID] {
