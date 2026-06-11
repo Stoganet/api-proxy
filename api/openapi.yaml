@@ -32,6 +32,7 @@ components:
                 - token_invalid
                 - jellyfin_session_expired
                 - backend_unavailable
+                - item_not_found
                 - rate_limited
                 - validation_failed
                 - internal
@@ -81,6 +82,63 @@ components:
       required: [poll_token]
       properties:
         poll_token: { type: string }
+
+    MediaType:
+      type: string
+      enum: [movie, tv]
+
+    MediaState:
+      type: string
+      enum: [playable, downloading, requestable]
+
+    PlayInfo:
+      type: object
+      required: [jellyfin_item_id, jellyfin_base_url, jellyfin_access_token, jellyfin_user_id]
+      properties:
+        jellyfin_item_id:      { type: string }
+        jellyfin_base_url:     { type: string }
+        jellyfin_access_token: { type: string }
+        jellyfin_user_id:      { type: string }
+
+    CastMember:
+      type: object
+      required: [name, role]
+      properties:
+        name: { type: string }
+        role: { type: string }
+
+    CatalogItem:
+      type: object
+      required: [id, title, year, type, poster, overview, state]
+      properties:
+        id:       { type: string }
+        title:    { type: string }
+        year:     { type: integer }
+        type:     { $ref: '#/components/schemas/MediaType' }
+        poster:   { type: string }
+        backdrop: { type: string, nullable: true }
+        overview: { type: string }
+        state:    { $ref: '#/components/schemas/MediaState' }
+
+    CatalogDetail:
+      allOf:
+        - $ref: '#/components/schemas/CatalogItem'
+        - type: object
+          required: [genres, runtime, cast, seasons]
+          properties:
+            genres:  { type: array, items: { type: string } }
+            runtime: { type: integer, description: Duration in minutes }
+            cast:    { type: array, items: { $ref: '#/components/schemas/CastMember' } }
+            seasons: { type: integer, description: Number of seasons; 0 for movies }
+            play:    { $ref: '#/components/schemas/PlayInfo', nullable: true }
+
+    CatalogListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:       { type: array, items: { $ref: '#/components/schemas/CatalogItem' } }
+        total:       { type: integer }
+        next_cursor: { type: string, nullable: true }
 
 paths:
   /healthz:
@@ -206,6 +264,78 @@ paths:
           description: Still waiting
         '410':
           description: Expired or rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /catalog/{id}:
+    get:
+      summary: Item detail with playback handoff
+      operationId: getCatalogId
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Item detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogDetail' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Jellyfin unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /catalog:
+    get:
+      summary: Paginated catalog browse
+      operationId: getCatalog
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/MediaType' }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 40, minimum: 1, maximum: 100 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Catalog page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogListResponse' }
+        '400':
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Jellyfin unavailable
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
