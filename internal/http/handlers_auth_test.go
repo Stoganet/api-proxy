@@ -25,6 +25,10 @@ type fakeAuth struct {
 	qcStartErr   error
 	qcPollOut    *auth.TokenPair
 	qcPollErr    error
+	verifyOut    *auth.Claims
+	verifyErr    error
+	jfTok        string
+	jfTokErr     error
 }
 
 func (f *fakeAuth) Login(_ context.Context, _, _ string, _ *string) (*auth.TokenPair, error) {
@@ -41,7 +45,10 @@ func (f *fakeAuth) QuickConnectStart(_ context.Context) (*auth.QuickConnectStart
 func (f *fakeAuth) QuickConnectPoll(_ context.Context, _ string) (*auth.TokenPair, error) {
 	return f.qcPollOut, f.qcPollErr
 }
-func (f *fakeAuth) VerifyJWT(_ string) (*auth.Claims, error) { return nil, nil }
+func (f *fakeAuth) VerifyJWT(_ string) (*auth.Claims, error) { return f.verifyOut, f.verifyErr }
+func (f *fakeAuth) GetJellyfinToken(_ context.Context, _ string) (string, error) {
+	return f.jfTok, f.jfTokErr
+}
 
 var testTokenPair = &auth.TokenPair{
 	AccessToken:  "access",

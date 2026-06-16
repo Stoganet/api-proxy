@@ -18,6 +18,7 @@ type AuthResult struct {
 var (
 	ErrInvalidCredentials  = errors.New("jellyfin: invalid credentials")
 	ErrUpstreamUnavailable = errors.New("jellyfin: upstream unavailable")
+	ErrItemNotFound        = errors.New("jellyfin: item not found")
 )
 
 func IsInvalidCredentials(err error) bool  { return errors.Is(err, ErrInvalidCredentials) }
