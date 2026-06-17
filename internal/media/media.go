@@ -46,7 +46,6 @@ type ListResult struct {
 
 type HomeSection struct {
 	ID      string
-	Title   string
 	Items   []Item
 	HasMore bool
 }

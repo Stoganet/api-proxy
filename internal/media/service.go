@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 )
@@ -71,6 +72,60 @@ func (s *Service) resolveItem(ctx context.Context, jfUserID, catalogID string) (
 	}
 
 	return nil, ErrItemNotFound
+}
+
+const homeRowLimit = 20
+
+type sectionDef struct {
+	id   string
+	opts jellyfin.GetItemsOpts
+}
+
+var homeSections = []sectionDef{
+	{id: "recently_added_movies", opts: jellyfin.GetItemsOpts{Type: "Movie", SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
+	{id: "recently_added_tv", opts: jellyfin.GetItemsOpts{Type: "Series", SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
+	{id: "all_movies", opts: jellyfin.GetItemsOpts{Type: "Movie", Limit: homeRowLimit}},
+	{id: "all_tv", opts: jellyfin.GetItemsOpts{Type: "Series", Limit: homeRowLimit}},
+}
+
+func (s *Service) Home(ctx context.Context, jfUserID string) (*HomeResult, error) {
+	type result struct {
+		section HomeSection
+		err     error
+	}
+
+	results := make([]result, len(homeSections))
+	var wg sync.WaitGroup
+	wg.Add(len(homeSections))
+
+	for i, def := range homeSections {
+		go func() {
+			defer wg.Done()
+			res, err := s.jf.GetItems(ctx, jfUserID, def.opts)
+			if err != nil {
+				results[i] = result{err: err}
+				return
+			}
+			items := make([]Item, len(res.Items))
+			for j, jfi := range res.Items {
+				items[j] = toItem(jfi, s.baseURL)
+			}
+			results[i] = result{section: HomeSection{
+				ID:      def.id,
+				Items:   items,
+				HasMore: res.TotalCount > len(res.Items),
+			}}
+		}()
+	}
+	wg.Wait()
+
+	sections := make([]HomeSection, 0, len(homeSections))
+	for _, r := range results {
+		if r.err == nil {
+			sections = append(sections, r.section)
+		}
+	}
+	return &HomeResult{Sections: sections}, nil
 }
 
 func (s *Service) List(ctx context.Context, jfUserID string, opts ListOpts) (*ListResult, error) {
