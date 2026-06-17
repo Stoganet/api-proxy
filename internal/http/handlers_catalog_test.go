@@ -8,21 +8,21 @@ import (
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/catalog"
 	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/Stoganet/api-proxy/internal/media"
 )
 
 type fakeCatalog struct {
-	detail    *catalog.Detail
+	detail    *media.Detail
 	detailErr error
-	list      *catalog.ListResult
+	list      *media.ListResult
 	listErr   error
 }
 
-func (f *fakeCatalog) GetItem(_ context.Context, _, _, _ string) (*catalog.Detail, error) {
+func (f *fakeCatalog) GetItem(_ context.Context, _, _, _ string) (*media.Detail, error) {
 	return f.detail, f.detailErr
 }
-func (f *fakeCatalog) List(_ context.Context, _ string, _ catalog.ListOpts) (*catalog.ListResult, error) {
+func (f *fakeCatalog) List(_ context.Context, _ string, _ media.ListOpts) (*media.ListResult, error) {
 	return f.list, f.listErr
 }
 
@@ -52,8 +52,8 @@ func authedFakeAuth() *fakeAuth {
 }
 
 func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
-	fc := &fakeCatalog{detail: &catalog.Detail{
-		Item: catalog.Item{
+	fc := &fakeCatalog{detail: &media.Detail{
+		Item: media.Item{
 			ID:    "tmdb:movie:603",
 			Title: "The Matrix",
 			Year:  1999,
@@ -62,7 +62,7 @@ func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
 		},
 		Runtime: 136,
 		Genres:  []string{"Action"},
-		Play: &catalog.PlayInfo{
+		Play: &media.PlayInfo{
 			JellyfinItemID:      "jf-abc",
 			JellyfinBaseURL:     "https://jf.example.com",
 			JellyfinAccessToken: "jf-tok",
@@ -92,7 +92,7 @@ func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
 }
 
 func TestGetCatalogId_NotFound_Returns404(t *testing.T) {
-	fc := &fakeCatalog{detailErr: catalog.ErrItemNotFound}
+	fc := &fakeCatalog{detailErr: media.ErrItemNotFound}
 
 	h := newCatalogServer(t, authedFakeAuth(), fc)
 	w := authedGet(t, h, "/catalog/missing")
@@ -107,8 +107,8 @@ func TestGetCatalogId_NotFound_Returns404(t *testing.T) {
 }
 
 func TestGetCatalog_Returns200WithList(t *testing.T) {
-	fc := &fakeCatalog{list: &catalog.ListResult{
-		Items: []catalog.Item{
+	fc := &fakeCatalog{list: &media.ListResult{
+		Items: []media.Item{
 			{ID: "tmdb:movie:1", Title: "Movie A", Type: "movie", State: "playable"},
 			{ID: "tmdb:movie:2", Title: "Movie B", Type: "movie", State: "playable"},
 		},

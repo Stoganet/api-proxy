@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/catalog"
+	"github.com/Stoganet/api-proxy/internal/media"
 	"github.com/Stoganet/api-proxy/internal/gen"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -26,8 +26,8 @@ type authService interface {
 }
 
 type catalogService interface {
-	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*catalog.Detail, error)
-	List(ctx context.Context, jfUserID string, opts catalog.ListOpts) (*catalog.ListResult, error)
+	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*media.Detail, error)
+	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
 }
 
 type Server struct {
@@ -36,7 +36,7 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(authSvc *auth.Service, catalogSvc *catalog.Service, logger *slog.Logger) stdhttp.Handler {
+func NewServer(authSvc *auth.Service, catalogSvc *media.Service, logger *slog.Logger) stdhttp.Handler {
 	s := &Server{auth: authSvc, catalog: catalogSvc, logger: logger}
 
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{

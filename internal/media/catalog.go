@@ -1,4 +1,4 @@
-package catalog
+package media
 
 type Item struct {
 	ID       string
