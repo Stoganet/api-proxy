@@ -17,6 +17,8 @@ type fakeLibrary struct {
 	detailErr error
 	list      *media.ListResult
 	listErr   error
+	home      *media.HomeResult
+	homeErr   error
 }
 
 func (f *fakeLibrary) GetItem(_ context.Context, _, _, _ string) (*media.Detail, error) {
@@ -24,6 +26,9 @@ func (f *fakeLibrary) GetItem(_ context.Context, _, _, _ string) (*media.Detail,
 }
 func (f *fakeLibrary) List(_ context.Context, _ string, _ media.ListOpts) (*media.ListResult, error) {
 	return f.list, f.listErr
+}
+func (f *fakeLibrary) Home(_ context.Context, _ string) (*media.HomeResult, error) {
+	return f.home, f.homeErr
 }
 
 func newLibraryServer(t *testing.T, fa *fakeAuth, fc *fakeLibrary) http.Handler {
