@@ -128,8 +128,21 @@ type CastMember struct {
 	Role string `json:"role"`
 }
 
-// CatalogDetail defines model for CatalogDetail.
-type CatalogDetail struct {
+// Error defines model for Error.
+type Error struct {
+	Error struct {
+		Code    ErrorErrorCode `json:"code"`
+		Details interface{}    `json:"details,omitempty"`
+		Message string         `json:"message"`
+	} `json:"error"`
+	RequestId string `json:"request_id"`
+}
+
+// ErrorErrorCode defines model for Error.Error.Code.
+type ErrorErrorCode string
+
+// LibraryDetail defines model for LibraryDetail.
+type LibraryDetail struct {
 	Backdrop *string      `json:"backdrop,omitempty"`
 	Cast     []CastMember `json:"cast"`
 	Genres   []string     `json:"genres"`
@@ -149,8 +162,8 @@ type CatalogDetail struct {
 	Year    int        `json:"year"`
 }
 
-// CatalogItem defines model for CatalogItem.
-type CatalogItem struct {
+// LibraryItem defines model for LibraryItem.
+type LibraryItem struct {
 	Backdrop *string    `json:"backdrop,omitempty"`
 	Id       string     `json:"id"`
 	Overview string     `json:"overview"`
@@ -161,25 +174,12 @@ type CatalogItem struct {
 	Year     int        `json:"year"`
 }
 
-// CatalogListResponse defines model for CatalogListResponse.
-type CatalogListResponse struct {
-	Items      []CatalogItem `json:"items"`
+// LibraryListResponse defines model for LibraryListResponse.
+type LibraryListResponse struct {
+	Items      []LibraryItem `json:"items"`
 	NextCursor *string       `json:"next_cursor,omitempty"`
 	Total      int           `json:"total"`
 }
-
-// Error defines model for Error.
-type Error struct {
-	Error struct {
-		Code    ErrorErrorCode `json:"code"`
-		Details interface{}    `json:"details,omitempty"`
-		Message string         `json:"message"`
-	} `json:"error"`
-	RequestId string `json:"request_id"`
-}
-
-// ErrorErrorCode defines model for Error.Error.Code.
-type ErrorErrorCode string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -235,15 +235,15 @@ type User struct {
 // bearerJWTContextKey is the context key for BearerJWT security scheme
 type bearerJWTContextKey string
 
-// GetCatalogParams defines parameters for GetCatalog.
-type GetCatalogParams struct {
+// GetHealthz200JSONResponseBodyStatus defines parameters for GetHealthz.
+type GetHealthz200JSONResponseBodyStatus string
+
+// GetLibraryParams defines parameters for GetLibrary.
+type GetLibraryParams struct {
 	Type   *MediaType `form:"type,omitempty" json:"type,omitempty"`
 	Limit  *int       `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
-
-// GetHealthz200JSONResponseBodyStatus defines parameters for GetHealthz.
-type GetHealthz200JSONResponseBodyStatus string
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
@@ -277,15 +277,15 @@ type ServerInterface interface {
 	// Refresh token rotation
 	// (POST /auth/refresh)
 	PostAuthRefresh(w http.ResponseWriter, r *http.Request)
-	// Paginated catalog browse
-	// (GET /catalog)
-	GetCatalog(w http.ResponseWriter, r *http.Request, params GetCatalogParams)
-	// Item detail with playback handoff
-	// (GET /catalog/{id})
-	GetCatalogId(w http.ResponseWriter, r *http.Request, id string)
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// Paginated library browse
+	// (GET /library)
+	GetLibrary(w http.ResponseWriter, r *http.Request, params GetLibraryParams)
+	// Item detail with playback handoff
+	// (GET /library/{id})
+	GetLibraryId(w http.ResponseWriter, r *http.Request, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -393,8 +393,22 @@ func (siw *ServerInterfaceWrapper) PostAuthRefresh(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// GetCatalog operation middleware
-func (siw *ServerInterfaceWrapper) GetCatalog(w http.ResponseWriter, r *http.Request) {
+// GetHealthz operation middleware
+func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLibrary operation middleware
+func (siw *ServerInterfaceWrapper) GetLibrary(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -406,7 +420,7 @@ func (siw *ServerInterfaceWrapper) GetCatalog(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetCatalogParams
+	var params GetLibraryParams
 
 	// ------------- Optional query parameter "type" -------------
 
@@ -448,7 +462,7 @@ func (siw *ServerInterfaceWrapper) GetCatalog(w http.ResponseWriter, r *http.Req
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCatalog(w, r, params)
+		siw.Handler.GetLibrary(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -458,8 +472,8 @@ func (siw *ServerInterfaceWrapper) GetCatalog(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// GetCatalogId operation middleware
-func (siw *ServerInterfaceWrapper) GetCatalogId(w http.ResponseWriter, r *http.Request) {
+// GetLibraryId operation middleware
+func (siw *ServerInterfaceWrapper) GetLibraryId(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -480,21 +494,7 @@ func (siw *ServerInterfaceWrapper) GetCatalogId(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCatalogId(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetHealthz operation middleware
-func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHealthz(w, r)
+		siw.Handler.GetLibraryId(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -630,9 +630,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/quick-connect/poll", wrapper.PostAuthQuickConnectPoll)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/quick-connect/start", wrapper.PostAuthQuickConnectStart)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/refresh", wrapper.PostAuthRefresh)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/catalog", wrapper.GetCatalog)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/catalog/{id}", wrapper.GetCatalogId)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library", wrapper.GetLibrary)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/{id}", wrapper.GetLibraryId)
 
 	return m
 }
@@ -847,134 +847,6 @@ func (response PostAuthRefresh401JSONResponse) VisitPostAuthRefreshResponse(w ht
 	return err
 }
 
-type GetCatalogRequestObject struct {
-	Params GetCatalogParams
-}
-
-type GetCatalogResponseObject interface {
-	VisitGetCatalogResponse(w http.ResponseWriter) error
-}
-
-type GetCatalog200JSONResponse CatalogListResponse
-
-func (response GetCatalog200JSONResponse) VisitGetCatalogResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalog400JSONResponse Error
-
-func (response GetCatalog400JSONResponse) VisitGetCatalogResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalog401JSONResponse Error
-
-func (response GetCatalog401JSONResponse) VisitGetCatalogResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalog503JSONResponse Error
-
-func (response GetCatalog503JSONResponse) VisitGetCatalogResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalogIdRequestObject struct {
-	Id string `json:"id"`
-}
-
-type GetCatalogIdResponseObject interface {
-	VisitGetCatalogIdResponse(w http.ResponseWriter) error
-}
-
-type GetCatalogId200JSONResponse CatalogDetail
-
-func (response GetCatalogId200JSONResponse) VisitGetCatalogIdResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalogId401JSONResponse Error
-
-func (response GetCatalogId401JSONResponse) VisitGetCatalogIdResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalogId404JSONResponse Error
-
-func (response GetCatalogId404JSONResponse) VisitGetCatalogIdResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCatalogId503JSONResponse Error
-
-func (response GetCatalogId503JSONResponse) VisitGetCatalogIdResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type GetHealthzRequestObject struct {
 }
 
@@ -994,6 +866,134 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryRequestObject struct {
+	Params GetLibraryParams
+}
+
+type GetLibraryResponseObject interface {
+	VisitGetLibraryResponse(w http.ResponseWriter) error
+}
+
+type GetLibrary200JSONResponse LibraryListResponse
+
+func (response GetLibrary200JSONResponse) VisitGetLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibrary400JSONResponse Error
+
+func (response GetLibrary400JSONResponse) VisitGetLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibrary401JSONResponse Error
+
+func (response GetLibrary401JSONResponse) VisitGetLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibrary503JSONResponse Error
+
+func (response GetLibrary503JSONResponse) VisitGetLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryIdRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetLibraryIdResponseObject interface {
+	VisitGetLibraryIdResponse(w http.ResponseWriter) error
+}
+
+type GetLibraryId200JSONResponse LibraryDetail
+
+func (response GetLibraryId200JSONResponse) VisitGetLibraryIdResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryId401JSONResponse Error
+
+func (response GetLibraryId401JSONResponse) VisitGetLibraryIdResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryId404JSONResponse Error
+
+func (response GetLibraryId404JSONResponse) VisitGetLibraryIdResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryId503JSONResponse Error
+
+func (response GetLibraryId503JSONResponse) VisitGetLibraryIdResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1018,15 +1018,15 @@ type StrictServerInterface interface {
 	// Refresh token rotation
 	// (POST /auth/refresh)
 	PostAuthRefresh(ctx context.Context, request PostAuthRefreshRequestObject) (PostAuthRefreshResponseObject, error)
-	// Paginated catalog browse
-	// (GET /catalog)
-	GetCatalog(ctx context.Context, request GetCatalogRequestObject) (GetCatalogResponseObject, error)
-	// Item detail with playback handoff
-	// (GET /catalog/{id})
-	GetCatalogId(ctx context.Context, request GetCatalogIdRequestObject) (GetCatalogIdResponseObject, error)
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
+	// Paginated library browse
+	// (GET /library)
+	GetLibrary(ctx context.Context, request GetLibraryRequestObject) (GetLibraryResponseObject, error)
+	// Item detail with playback handoff
+	// (GET /library/{id})
+	GetLibraryId(ctx context.Context, request GetLibraryIdRequestObject) (GetLibraryIdResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1230,58 +1230,6 @@ func (sh *strictHandler) PostAuthRefresh(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// GetCatalog operation middleware
-func (sh *strictHandler) GetCatalog(w http.ResponseWriter, r *http.Request, params GetCatalogParams) {
-	var request GetCatalogRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetCatalog(ctx, request.(GetCatalogRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetCatalog")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetCatalogResponseObject); ok {
-		if err := validResponse.VisitGetCatalogResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetCatalogId operation middleware
-func (sh *strictHandler) GetCatalogId(w http.ResponseWriter, r *http.Request, id string) {
-	var request GetCatalogIdRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetCatalogId(ctx, request.(GetCatalogIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetCatalogId")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetCatalogIdResponseObject); ok {
-		if err := validResponse.VisitGetCatalogIdResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // GetHealthz operation middleware
 func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthzRequestObject
@@ -1306,40 +1254,92 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetLibrary operation middleware
+func (sh *strictHandler) GetLibrary(w http.ResponseWriter, r *http.Request, params GetLibraryParams) {
+	var request GetLibraryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLibrary(ctx, request.(GetLibraryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLibrary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLibraryResponseObject); ok {
+		if err := validResponse.VisitGetLibraryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLibraryId operation middleware
+func (sh *strictHandler) GetLibraryId(w http.ResponseWriter, r *http.Request, id string) {
+	var request GetLibraryIdRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLibraryId(ctx, request.(GetLibraryIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLibraryId")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLibraryIdResponseObject); ok {
+		if err := validResponse.VisitGetLibraryIdResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

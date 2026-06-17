@@ -12,7 +12,7 @@ make build    # compile to dist/api-proxy
 make tidy     # go mod tidy
 
 # Run a single test
-go test -run TestName ./internal/catalog/
+go test -run TestName ./internal/media/
 ```
 
 ## Architecture
@@ -26,15 +26,15 @@ net/http → RequestID → Logging → gen.Handler(strict) → jwtStrictMiddlewa
 
 **JWT middleware is opt-out.** A `public` map in `internal/http/server.go` lists endpoints that do NOT require auth. All new endpoints are automatically JWT-protected unless explicitly added to that map.
 
-**Type boundary.** `internal/clients/jellyfin/` returns Jellyfin-typed structs. `internal/catalog/mapper.go` translates them to proxy domain types (`catalog.Item`, `catalog.Detail`). HTTP handlers work only with `catalog.*` and `gen.*` types — never with Jellyfin types directly.
+**Type boundary.** `internal/clients/jellyfin/` returns Jellyfin-typed structs. `internal/media/mapper.go` translates them to proxy domain types (`media.Item`, `media.Detail`). HTTP handlers work only with `media.*` and `gen.*` types — never with Jellyfin types directly.
 
 **Catalog ID format.** Proxy-scoped IDs, not Jellyfin UUIDs:
 - `tmdb:movie:{id}` / `tmdb:tv:{id}` — resolved via Jellyfin's `AnyProviderIdEquals` filter
 - `jf:{jellyfinUUID}` — direct Jellyfin lookup after stripping prefix
 
-`catalog.Service.resolveItem()` handles translation. Never pass catalog IDs verbatim to Jellyfin.
+`media.Service.resolveItem()` handles translation. Never pass catalog IDs verbatim to Jellyfin.
 
-**Playback handoff.** `catalog.Detail.Play` carries `JellyfinAccessToken` fetched from the `users` table via `auth.GetJellyfinToken`. Clients send all four `play.*` fields to the Jellyfin SDK.
+**Playback handoff.** `media.Detail.Play` carries `JellyfinAccessToken` fetched from the `users` table via `auth.GetJellyfinToken`. Clients send all four `play.*` fields to the Jellyfin SDK.
 
 **SQLite + embedded migrations.** `internal/db/` opens SQLite with WAL-friendly pragmas and runs all `migrations/*.sql` files at startup (embedded via `//go:embed`). SQL queries must use parameterised placeholders.
 

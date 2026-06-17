@@ -107,7 +107,7 @@ components:
         name: { type: string }
         role: { type: string }
 
-    CatalogItem:
+    LibraryItem:
       type: object
       required: [id, title, year, type, poster, overview, state]
       properties:
@@ -120,9 +120,9 @@ components:
         overview: { type: string }
         state:    { $ref: '#/components/schemas/MediaState' }
 
-    CatalogDetail:
+    LibraryDetail:
       allOf:
-        - $ref: '#/components/schemas/CatalogItem'
+        - $ref: '#/components/schemas/LibraryItem'
         - type: object
           required: [genres, runtime, cast, seasons]
           properties:
@@ -132,11 +132,11 @@ components:
             seasons: { type: integer, description: Number of seasons; 0 for movies }
             play:    { $ref: '#/components/schemas/PlayInfo', nullable: true }
 
-    CatalogListResponse:
+    LibraryListResponse:
       type: object
       required: [items, total]
       properties:
-        items:       { type: array, items: { $ref: '#/components/schemas/CatalogItem' } }
+        items:       { type: array, items: { $ref: '#/components/schemas/LibraryItem' } }
         total:       { type: integer }
         next_cursor: { type: string, nullable: true }
 
@@ -268,10 +268,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
-  /catalog/{id}:
+  /library/{id}:
     get:
       summary: Item detail with playback handoff
-      operationId: getCatalogId
+      operationId: getLibraryId
       security: [ { BearerJWT: [] } ]
       parameters:
         - name: id
@@ -283,7 +283,7 @@ paths:
           description: Item detail
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CatalogDetail' }
+              schema: { $ref: '#/components/schemas/LibraryDetail' }
         '401':
           description: Unauthorized
           content:
@@ -300,10 +300,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
-  /catalog:
+  /library:
     get:
-      summary: Paginated catalog browse
-      operationId: getCatalog
+      summary: Paginated library browse
+      operationId: getLibrary
       security: [ { BearerJWT: [] } ]
       parameters:
         - name: type
@@ -320,10 +320,10 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Catalog page
+          description: Library page
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CatalogListResponse' }
+              schema: { $ref: '#/components/schemas/LibraryListResponse' }
         '400':
           description: Invalid query parameter
           content:
