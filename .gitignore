@@ -20,3 +20,4 @@ coverage.out
 # ai
 .claude/settings.local.json
 docs/superpowers
+docs/internal
