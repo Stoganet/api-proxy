@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/catalog"
 	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/Stoganet/api-proxy/internal/media"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -25,19 +25,19 @@ type authService interface {
 	GetJellyfinToken(ctx context.Context, userID string) (string, error)
 }
 
-type catalogService interface {
-	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*catalog.Detail, error)
-	List(ctx context.Context, jfUserID string, opts catalog.ListOpts) (*catalog.ListResult, error)
+type libraryService interface {
+	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*media.Detail, error)
+	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
 }
 
 type Server struct {
 	auth    authService
-	catalog catalogService
+	library libraryService
 	logger  *slog.Logger
 }
 
-func NewServer(authSvc *auth.Service, catalogSvc *catalog.Service, logger *slog.Logger) stdhttp.Handler {
-	s := &Server{auth: authSvc, catalog: catalogSvc, logger: logger}
+func NewServer(authSvc *auth.Service, libSvc *media.Service, logger *slog.Logger) stdhttp.Handler {
+	s := &Server{auth: authSvc, library: libSvc, logger: logger}
 
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
 		jwtStrictMiddleware(authSvc),

@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/catalog"
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 	"github.com/Stoganet/api-proxy/internal/config"
 	"github.com/Stoganet/api-proxy/internal/db"
 	apihttp "github.com/Stoganet/api-proxy/internal/http"
+	"github.com/Stoganet/api-proxy/internal/media"
 )
 
 func main() {
@@ -42,9 +42,9 @@ func main() {
 		Jellyfin: jellyfin.AsAuthAdapter(jfClient),
 		SignKey:  cfg.JWTSigningKey,
 	})
-	catalogSvc := catalog.NewService(jfClient, cfg.JellyfinURL)
+	libSvc := media.NewService(jfClient, cfg.JellyfinURL)
 
-	srv := apihttp.NewServer(authSvc, catalogSvc, logger)
+	srv := apihttp.NewServer(authSvc, libSvc, logger)
 	httpSrv := &stdhttp.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           srv,

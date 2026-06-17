@@ -8,27 +8,27 @@ import (
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/catalog"
 	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/Stoganet/api-proxy/internal/media"
 )
 
-type fakeCatalog struct {
-	detail    *catalog.Detail
+type fakeLibrary struct {
+	detail    *media.Detail
 	detailErr error
-	list      *catalog.ListResult
+	list      *media.ListResult
 	listErr   error
 }
 
-func (f *fakeCatalog) GetItem(_ context.Context, _, _, _ string) (*catalog.Detail, error) {
+func (f *fakeLibrary) GetItem(_ context.Context, _, _, _ string) (*media.Detail, error) {
 	return f.detail, f.detailErr
 }
-func (f *fakeCatalog) List(_ context.Context, _ string, _ catalog.ListOpts) (*catalog.ListResult, error) {
+func (f *fakeLibrary) List(_ context.Context, _ string, _ media.ListOpts) (*media.ListResult, error) {
 	return f.list, f.listErr
 }
 
-func newCatalogServer(t *testing.T, fa *fakeAuth, fc *fakeCatalog) http.Handler {
+func newLibraryServer(t *testing.T, fa *fakeAuth, fc *fakeLibrary) http.Handler {
 	t.Helper()
-	s := &Server{auth: fa, catalog: fc}
+	s := &Server{auth: fa, library: fc}
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
 		jwtStrictMiddleware(fa),
 	}, gen.StrictHTTPServerOptions{})
@@ -51,9 +51,9 @@ func authedFakeAuth() *fakeAuth {
 	}
 }
 
-func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
-	fc := &fakeCatalog{detail: &catalog.Detail{
-		Item: catalog.Item{
+func TestGetLibraryId_Returns200WithDetail(t *testing.T) {
+	fc := &fakeLibrary{detail: &media.Detail{
+		Item: media.Item{
 			ID:    "tmdb:movie:603",
 			Title: "The Matrix",
 			Year:  1999,
@@ -62,7 +62,7 @@ func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
 		},
 		Runtime: 136,
 		Genres:  []string{"Action"},
-		Play: &catalog.PlayInfo{
+		Play: &media.PlayInfo{
 			JellyfinItemID:      "jf-abc",
 			JellyfinBaseURL:     "https://jf.example.com",
 			JellyfinAccessToken: "jf-tok",
@@ -70,13 +70,13 @@ func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
 		},
 	}}
 
-	h := newCatalogServer(t, authedFakeAuth(), fc)
-	w := authedGet(t, h, "/catalog/tmdb:movie:603")
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/tmdb:movie:603")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want 200. body: %s", w.Code, w.Body.String())
 	}
-	var resp gen.CatalogDetail
+	var resp gen.LibraryDetail
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
@@ -91,11 +91,11 @@ func TestGetCatalogId_Returns200WithDetail(t *testing.T) {
 	}
 }
 
-func TestGetCatalogId_NotFound_Returns404(t *testing.T) {
-	fc := &fakeCatalog{detailErr: catalog.ErrItemNotFound}
+func TestGetLibraryId_NotFound_Returns404(t *testing.T) {
+	fc := &fakeLibrary{detailErr: media.ErrItemNotFound}
 
-	h := newCatalogServer(t, authedFakeAuth(), fc)
-	w := authedGet(t, h, "/catalog/missing")
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/missing")
 
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status: got %d, want 404", w.Code)
@@ -106,9 +106,9 @@ func TestGetCatalogId_NotFound_Returns404(t *testing.T) {
 	}
 }
 
-func TestGetCatalog_Returns200WithList(t *testing.T) {
-	fc := &fakeCatalog{list: &catalog.ListResult{
-		Items: []catalog.Item{
+func TestGetLibrary_Returns200WithList(t *testing.T) {
+	fc := &fakeLibrary{list: &media.ListResult{
+		Items: []media.Item{
 			{ID: "tmdb:movie:1", Title: "Movie A", Type: "movie", State: "playable"},
 			{ID: "tmdb:movie:2", Title: "Movie B", Type: "movie", State: "playable"},
 		},
@@ -116,13 +116,13 @@ func TestGetCatalog_Returns200WithList(t *testing.T) {
 		NextCursor: "2",
 	}}
 
-	h := newCatalogServer(t, authedFakeAuth(), fc)
-	w := authedGet(t, h, "/catalog")
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status: got %d. body: %s", w.Code, w.Body.String())
 	}
-	var resp gen.CatalogListResponse
+	var resp gen.LibraryListResponse
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
@@ -134,11 +134,11 @@ func TestGetCatalog_Returns200WithList(t *testing.T) {
 	}
 }
 
-func TestGetCatalogId_NoAuth_Returns401(t *testing.T) {
+func TestGetLibraryId_NoAuth_Returns401(t *testing.T) {
 	fa := &fakeAuth{}
-	h := newCatalogServer(t, fa, &fakeCatalog{})
+	h := newLibraryServer(t, fa, &fakeLibrary{})
 
-	req := httptest.NewRequest(http.MethodGet, "/catalog/some-id", nil)
+	req := httptest.NewRequest(http.MethodGet, "/library/some-id", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
