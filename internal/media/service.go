@@ -82,10 +82,10 @@ type sectionDef struct {
 }
 
 var homeSections = []sectionDef{
-	{id: "recently_added_movies", opts: jellyfin.GetItemsOpts{Type: "Movie", SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
-	{id: "recently_added_tv", opts: jellyfin.GetItemsOpts{Type: "Series", SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
-	{id: "all_movies", opts: jellyfin.GetItemsOpts{Type: "Movie", Limit: homeRowLimit}},
-	{id: "all_tv", opts: jellyfin.GetItemsOpts{Type: "Series", Limit: homeRowLimit}},
+	{id: "recently_added_movies", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeMovie, SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
+	{id: "recently_added_tv", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeSeries, SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
+	{id: "all_movies", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeMovie, Limit: homeRowLimit}},
+	{id: "all_tv", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeSeries, Limit: homeRowLimit}},
 }
 
 func (s *Service) Home(ctx context.Context, jfUserID string) (*HomeResult, error) {
@@ -145,10 +145,10 @@ func (s *Service) List(ctx context.Context, jfUserID string, opts ListOpts) (*Li
 		StartIndex: opts.StartIndex,
 	}
 	switch opts.Type {
-	case "movie":
-		jfOpts.Type = "Movie"
-	case "tv":
-		jfOpts.Type = "Series"
+	case TypeMovie:
+		jfOpts.Type = jellyfin.ItemTypeMovie
+	case TypeTV:
+		jfOpts.Type = jellyfin.ItemTypeSeries
 	}
 
 	result, err := s.jf.GetItems(ctx, jfUserID, jfOpts)

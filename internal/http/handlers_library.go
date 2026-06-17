@@ -35,7 +35,7 @@ func (s *Server) GetLibrary(ctx context.Context, req gen.GetLibraryRequestObject
 
 	opts := media.ListOpts{}
 	if req.Params.Type != nil {
-		opts.Type = string(*req.Params.Type)
+		opts.Type = media.Type(*req.Params.Type)
 	}
 	if req.Params.Limit != nil {
 		opts.Limit = *req.Params.Limit
@@ -79,11 +79,11 @@ func toGenItem(it media.Item) gen.LibraryItem {
 		Id:       it.ID,
 		Title:    it.Title,
 		Year:     it.Year,
-		Type:     gen.MediaType(it.Type),
+		Type:     gen.MediaType(string(it.Type)),
 		Poster:   it.Poster,
 		Backdrop: backdrop,
 		Overview: it.Overview,
-		State:    gen.MediaState(it.State),
+		State:    gen.MediaState(string(it.State)),
 	}
 }
 

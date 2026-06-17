@@ -16,12 +16,12 @@ func TestGetHome_Returns200WithSections(t *testing.T) {
 		Sections: []media.HomeSection{
 			{
 				ID:      "recently_added_movies",
-				Items:   []media.Item{{ID: "tmdb:movie:1", Title: "Movie A", Type: "movie", State: "playable"}},
+				Items:   []media.Item{{ID: "tmdb:movie:1", Title: "Movie A", Type: media.TypeMovie, State: media.StatePlayable}},
 				HasMore: true,
 			},
 			{
 				ID:      "all_tv",
-				Items:   []media.Item{{ID: "tmdb:tv:2", Title: "Show B", Type: "tv", State: "playable"}},
+				Items:   []media.Item{{ID: "tmdb:tv:2", Title: "Show B", Type: media.TypeTV, State: media.StatePlayable}},
 				HasMore: false,
 			},
 		},

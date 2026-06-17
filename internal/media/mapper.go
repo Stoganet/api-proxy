@@ -17,7 +17,7 @@ func toItem(jf jellyfin.Item, baseURL string) Item {
 		Poster:   fmt.Sprintf("%s/Items/%s/Images/Primary", baseURL, jf.ID),
 		Backdrop: backdrop(jf, baseURL),
 		Overview: jf.Overview,
-		State:    "playable",
+		State:    StatePlayable,
 	}
 }
 
@@ -33,7 +33,7 @@ func toDetail(jf jellyfin.Item, baseURL, jfToken, jfUserID string) Detail {
 	}
 
 	seasons := 0
-	if jf.Type == "Series" {
+	if jf.Type == jellyfin.ItemTypeSeries {
 		seasons = jf.ChildCount
 	}
 
@@ -59,11 +59,11 @@ func itemID(jf jellyfin.Item) string {
 	return fmt.Sprintf("jf:%s", jf.ID)
 }
 
-func itemType(jfType string) string {
-	if jfType == "Series" {
-		return "tv"
+func itemType(jfType jellyfin.ItemType) Type {
+	if jfType == jellyfin.ItemTypeSeries {
+		return TypeTV
 	}
-	return "movie"
+	return TypeMovie
 }
 
 func backdrop(jf jellyfin.Item, baseURL string) string {

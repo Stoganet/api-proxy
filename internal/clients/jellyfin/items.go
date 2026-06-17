@@ -7,10 +7,17 @@ import (
 	"net/http"
 )
 
+type ItemType string
+
+const (
+	ItemTypeMovie  ItemType = "Movie"
+	ItemTypeSeries ItemType = "Series"
+)
+
 type Item struct {
 	ID              string
 	Name            string
-	Type            string
+	Type            ItemType
 	Year            int
 	Overview        string
 	Genres          []string
@@ -43,7 +50,7 @@ const (
 )
 
 type GetItemsOpts struct {
-	Type       string // "Movie" or "Series"; empty = both
+	Type       ItemType // ItemTypeMovie, ItemTypeSeries, or zero value = both
 	Limit      int
 	StartIndex int
 	ProviderID string // e.g. "Tmdb.603"; sets AnyProviderIdEquals when non-empty
@@ -91,7 +98,7 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 	q.Set("Recursive", "true")
 	q.Set("Fields", "Genres,People,ProviderIds,Overview,ChildCount")
 	if opts.Type != "" {
-		q.Set("IncludeItemTypes", opts.Type)
+		q.Set("IncludeItemTypes", string(opts.Type))
 	} else {
 		q.Set("IncludeItemTypes", "Movie,Series")
 	}
@@ -150,7 +157,7 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 type jfItemResponse struct {
 	ID             string            `json:"Id"`
 	Name           string            `json:"Name"`
-	Type           string            `json:"Type"`
+	Type           ItemType          `json:"Type"`
 	ProductionYear int               `json:"ProductionYear"`
 	Overview       string            `json:"Overview"`
 	Genres         []string          `json:"Genres"`
