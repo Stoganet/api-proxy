@@ -159,3 +159,96 @@ func TestService_List_EmptyNextCursorOnLastPage(t *testing.T) {
 		t.Errorf("NextCursor should be empty on last page, got %q", res.NextCursor)
 	}
 }
+
+// fakeJFFunc allows per-call control of GetItems for Home() fan-out tests.
+type fakeJFFunc struct {
+	fn func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error)
+}
+
+func (f *fakeJFFunc) GetItem(_ context.Context, _, _ string) (*jellyfin.Item, error) {
+	return nil, jellyfin.ErrItemNotFound
+}
+
+func (f *fakeJFFunc) GetItems(_ context.Context, _ string, opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+	return f.fn(opts)
+}
+
+func okSection() *jellyfin.ItemsResult {
+	return &jellyfin.ItemsResult{
+		Items:      []jellyfin.Item{{ID: "jf-1", Type: jellyfin.ItemTypeMovie}},
+		TotalCount: 1,
+	}
+}
+
+func TestService_Home_AllSectionsSucceed(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(_ jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		return okSection(), nil
+	}}
+	res, err := newSvc(jf).Home(context.Background(), "uid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Sections) != len(homeSections) {
+		t.Errorf("sections: got %d, want %d", len(res.Sections), len(homeSections))
+	}
+}
+
+func TestService_Home_OneSectionFails_OmitsIt(t *testing.T) {
+	failOpts := homeSections[0].opts
+	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		if opts == failOpts {
+			return nil, errors.New("upstream error")
+		}
+		return okSection(), nil
+	}}
+	res, err := newSvc(jf).Home(context.Background(), "uid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Sections) != len(homeSections)-1 {
+		t.Errorf("sections: got %d, want %d", len(res.Sections), len(homeSections)-1)
+	}
+}
+
+func TestService_Home_AllSectionsFail_ReturnsError(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(_ jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		return nil, errors.New("upstream error")
+	}}
+	_, err := newSvc(jf).Home(context.Background(), "uid")
+	if err == nil {
+		t.Fatal("expected error when all sections fail")
+	}
+}
+
+func TestService_Home_HasMore_TrueWhenTotalExceedsReturned(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(_ jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		return &jellyfin.ItemsResult{
+			Items:      []jellyfin.Item{{ID: "jf-1", Type: jellyfin.ItemTypeMovie}},
+			TotalCount: 100,
+		}, nil
+	}}
+	res, err := newSvc(jf).Home(context.Background(), "uid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, sec := range res.Sections {
+		if !sec.HasMore {
+			t.Errorf("section %q: HasMore should be true when TotalCount > len(Items)", sec.ID)
+		}
+	}
+}
+
+func TestService_Home_HasMore_FalseWhenAllReturned(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(_ jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		return okSection(), nil
+	}}
+	res, err := newSvc(jf).Home(context.Background(), "uid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, sec := range res.Sections {
+		if sec.HasMore {
+			t.Errorf("section %q: HasMore should be false when TotalCount == len(Items)", sec.ID)
+		}
+	}
+}
