@@ -62,8 +62,8 @@ func TestGetLibraryId_Returns200WithDetail(t *testing.T) {
 			ID:    "tmdb:movie:603",
 			Title: "The Matrix",
 			Year:  1999,
-			Type:  "movie",
-			State: "playable",
+			Type:  media.TypeMovie,
+			State: media.StatePlayable,
 		},
 		Runtime: 136,
 		Genres:  []string{"Action"},
@@ -114,8 +114,8 @@ func TestGetLibraryId_NotFound_Returns404(t *testing.T) {
 func TestGetLibrary_Returns200WithList(t *testing.T) {
 	fc := &fakeLibrary{list: &media.ListResult{
 		Items: []media.Item{
-			{ID: "tmdb:movie:1", Title: "Movie A", Type: "movie", State: "playable"},
-			{ID: "tmdb:movie:2", Title: "Movie B", Type: "movie", State: "playable"},
+			{ID: "tmdb:movie:1", Title: "Movie A", Type: media.TypeMovie, State: media.StatePlayable},
+			{ID: "tmdb:movie:2", Title: "Movie B", Type: media.TypeMovie, State: media.StatePlayable},
 		},
 		Total:      50,
 		NextCursor: "2",

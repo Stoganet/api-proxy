@@ -10,7 +10,7 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	item := jellyfin.Item{
 		ID:              "jf-abc",
 		Name:            "The Matrix",
-		Type:            "Movie",
+		Type:            jellyfin.ItemTypeMovie,
 		Year:            1999,
 		Overview:        "A hacker discovers reality is a simulation.",
 		Genres:          []string{"Action", "Sci-Fi"},
@@ -34,8 +34,8 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		{"ID", got.ID, "tmdb:movie:603"},
 		{"Title", got.Title, "The Matrix"},
 		{"Year", got.Year, 1999},
-		{"Type", got.Type, "movie"},
-		{"State", got.State, "playable"},
+		{"Type", got.Type, TypeMovie},
+		{"State", got.State, StatePlayable},
 		{"Overview", got.Overview, "A hacker discovers reality is a simulation."},
 		{"Runtime", got.Runtime, 136},
 		{"Poster", got.Poster, "https://jf.example.com/Items/jf-abc/Images/Primary"},
@@ -75,7 +75,7 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 	item := jellyfin.Item{
 		ID:         "jf-xyz",
 		Name:       "Home Video",
-		Type:       "Series",
+		Type:       jellyfin.ItemTypeSeries,
 		Year:       2020,
 		ChildCount: 3,
 	}
@@ -85,8 +85,8 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 	if got.ID != "jf:jf-xyz" {
 		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-xyz")
 	}
-	if got.Type != "tv" {
-		t.Errorf("Type: got %q, want %q", got.Type, "tv")
+	if got.Type != TypeTV {
+		t.Errorf("Type: got %q, want %q", got.Type, TypeTV)
 	}
 	if got.Backdrop != "" {
 		t.Errorf("Backdrop should be empty when no BackdropTags, got %q", got.Backdrop)
@@ -100,7 +100,7 @@ func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 	item := jellyfin.Item{
 		ID:          "jf-tv-1",
 		Name:        "Breaking Bad",
-		Type:        "Series",
+		Type:        jellyfin.ItemTypeSeries,
 		ProviderIDs: map[string]string{"Tmdb": "1396"},
 	}
 
@@ -115,7 +115,7 @@ func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	item := jellyfin.Item{
 		ID:              "jf-abc",
 		Name:            "The Matrix",
-		Type:            "Movie",
+		Type:            jellyfin.ItemTypeMovie,
 		Year:            1999,
 		PrimaryImageTag: "tag1",
 		ProviderIDs:     map[string]string{"Tmdb": "603"},
@@ -131,8 +131,8 @@ func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		{"ID", got.ID, "tmdb:movie:603"},
 		{"Title", got.Title, "The Matrix"},
 		{"Year", got.Year, 1999},
-		{"Type", got.Type, "movie"},
-		{"State", got.State, "playable"},
+		{"Type", got.Type, TypeMovie},
+		{"State", got.State, StatePlayable},
 		{"Poster", got.Poster, "https://jf.example.com/Items/jf-abc/Images/Primary"},
 	}
 	for _, f := range fields {

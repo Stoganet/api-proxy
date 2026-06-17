@@ -1,14 +1,29 @@
 package media
 
+type Type string
+
+const (
+	TypeMovie Type = "movie"
+	TypeTV    Type = "tv"
+)
+
+type State string
+
+const (
+	StatePlayable    State = "playable"
+	StateDownloading State = "downloading"
+	StateRequestable State = "requestable"
+)
+
 type Item struct {
 	ID       string
 	Title    string
 	Year     int
-	Type     string // "movie" | "tv"
+	Type     Type
 	Poster   string
 	Backdrop string
 	Overview string
-	State    string // "playable" | "downloading" | "requestable"
+	State    State
 }
 
 type Detail struct {
@@ -33,8 +48,8 @@ type CastMember struct {
 }
 
 type ListOpts struct {
-	Type       string // "movie" | "tv" | "" (both)
-	Limit      int    // default 40, max 100
+	Type       Type // TypeMovie, TypeTV, or zero value = both
+	Limit      int  // default 40, max 100
 	StartIndex int
 }
 
