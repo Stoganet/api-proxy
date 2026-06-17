@@ -33,11 +33,22 @@ type ItemsResult struct {
 	StartIndex int
 }
 
+const (
+	SortByDateCreated     = "DateCreated"
+	SortBySortName        = "SortName"
+	SortByCommunityRating = "CommunityRating"
+	SortByPremiereDate    = "PremiereDate"
+	SortByDatePlayed      = "DatePlayed"
+	SortByRandom          = "Random"
+)
+
 type GetItemsOpts struct {
 	Type       string // "Movie" or "Series"; empty = both
 	Limit      int
 	StartIndex int
 	ProviderID string // e.g. "Tmdb.603"; sets AnyProviderIdEquals when non-empty
+	SortBy     string
+	SortDesc   bool
 }
 
 func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, error) {
@@ -92,6 +103,14 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 	}
 	if opts.ProviderID != "" {
 		q.Set("AnyProviderIdEquals", opts.ProviderID)
+	}
+	if opts.SortBy != "" {
+		q.Set("SortBy", opts.SortBy)
+		if opts.SortDesc {
+			q.Set("SortOrder", "Descending")
+		} else {
+			q.Set("SortOrder", "Ascending")
+		}
 	}
 	req.URL.RawQuery = q.Encode()
 
