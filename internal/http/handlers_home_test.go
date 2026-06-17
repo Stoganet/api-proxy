@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,6 +69,21 @@ func TestGetHome_EmptySections_Returns200(t *testing.T) {
 	}
 	if len(resp.Sections) != 0 {
 		t.Errorf("sections: got %d, want 0", len(resp.Sections))
+	}
+}
+
+func TestGetHome_ServiceError_Returns503(t *testing.T) {
+	fc := &fakeLibrary{homeErr: errors.New("all sections failed")}
+
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/home")
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status: got %d, want 503", w.Code)
+	}
+	e := decodeError(t, w)
+	if e.Error.Code != gen.BackendUnavailable {
+		t.Errorf("code: got %q", e.Error.Code)
 	}
 }
 

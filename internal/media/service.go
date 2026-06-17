@@ -125,6 +125,9 @@ func (s *Service) Home(ctx context.Context, jfUserID string) (*HomeResult, error
 			sections = append(sections, r.section)
 		}
 	}
+	if len(sections) == 0 && len(homeSections) > 0 {
+		return nil, fmt.Errorf("home: all sections failed")
+	}
 	return &HomeResult{Sections: sections}, nil
 }
 
