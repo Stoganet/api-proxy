@@ -43,3 +43,14 @@ type ListResult struct {
 	Total      int
 	NextCursor string // "" if last page
 }
+
+type HomeSection struct {
+	ID      string
+	Title   string
+	Items   []Item
+	HasMore bool
+}
+
+type HomeResult struct {
+	Sections []HomeSection
+}
