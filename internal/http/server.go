@@ -28,6 +28,7 @@ type authService interface {
 type libraryService interface {
 	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*media.Detail, error)
 	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
+	Home(ctx context.Context, jfUserID string) (*media.HomeResult, error)
 }
 
 type Server struct {

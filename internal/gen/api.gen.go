@@ -141,6 +141,18 @@ type Error struct {
 // ErrorErrorCode defines model for Error.Error.Code.
 type ErrorErrorCode string
 
+// HomeResponse defines model for HomeResponse.
+type HomeResponse struct {
+	Sections []HomeSection `json:"sections"`
+}
+
+// HomeSection defines model for HomeSection.
+type HomeSection struct {
+	HasMore bool          `json:"has_more"`
+	Id      string        `json:"id"`
+	Items   []LibraryItem `json:"items"`
+}
+
 // LibraryDetail defines model for LibraryDetail.
 type LibraryDetail struct {
 	Backdrop *string      `json:"backdrop,omitempty"`
@@ -280,6 +292,9 @@ type ServerInterface interface {
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// Home screen sections
+	// (GET /home)
+	GetHome(w http.ResponseWriter, r *http.Request)
 	// Paginated library browse
 	// (GET /library)
 	GetLibrary(w http.ResponseWriter, r *http.Request, params GetLibraryParams)
@@ -398,6 +413,26 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHome operation middleware
+func (siw *ServerInterfaceWrapper) GetHome(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerJWTScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHome(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -631,6 +666,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/quick-connect/start", wrapper.PostAuthQuickConnectStart)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/refresh", wrapper.PostAuthRefresh)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/home", wrapper.GetHome)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library", wrapper.GetLibrary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/{id}", wrapper.GetLibraryId)
 
@@ -870,6 +906,55 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 	return err
 }
 
+type GetHomeRequestObject struct {
+}
+
+type GetHomeResponseObject interface {
+	VisitGetHomeResponse(w http.ResponseWriter) error
+}
+
+type GetHome200JSONResponse HomeResponse
+
+func (response GetHome200JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome401JSONResponse Error
+
+func (response GetHome401JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome503JSONResponse Error
+
+func (response GetHome503JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetLibraryRequestObject struct {
 	Params GetLibraryParams
 }
@@ -1021,6 +1106,9 @@ type StrictServerInterface interface {
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
+	// Home screen sections
+	// (GET /home)
+	GetHome(ctx context.Context, request GetHomeRequestObject) (GetHomeResponseObject, error)
 	// Paginated library browse
 	// (GET /library)
 	GetLibrary(ctx context.Context, request GetLibraryRequestObject) (GetLibraryResponseObject, error)
@@ -1254,6 +1342,30 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetHome operation middleware
+func (sh *strictHandler) GetHome(w http.ResponseWriter, r *http.Request) {
+	var request GetHomeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHome(ctx, request.(GetHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHomeResponseObject); ok {
+		if err := validResponse.VisitGetHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetLibrary operation middleware
 func (sh *strictHandler) GetLibrary(w http.ResponseWriter, r *http.Request, params GetLibraryParams) {
 	var request GetLibraryRequestObject
@@ -1311,35 +1423,37 @@ func (sh *strictHandler) GetLibraryId(w http.ResponseWriter, r *http.Request, id
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -140,6 +140,20 @@ components:
         total:       { type: integer }
         next_cursor: { type: string, nullable: true }
 
+    HomeSection:
+      type: object
+      required: [id, items, has_more]
+      properties:
+        id:       { type: string }
+        items:    { type: array, items: { $ref: '#/components/schemas/LibraryItem' } }
+        has_more: { type: boolean }
+
+    HomeResponse:
+      type: object
+      required: [sections]
+      properties:
+        sections: { type: array, items: { $ref: '#/components/schemas/HomeSection' } }
+
 paths:
   /healthz:
     get:
@@ -336,6 +350,28 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '503':
           description: Jellyfin unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /home:
+    get:
+      summary: Home screen sections
+      operationId: getHome
+      security: [ { BearerJWT: [] } ]
+      responses:
+        '200':
+          description: Home screen sections (best-effort; failed sections omitted)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeResponse' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: All upstream queries failed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
