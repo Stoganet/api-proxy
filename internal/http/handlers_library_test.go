@@ -21,7 +21,7 @@ type fakeLibrary struct {
 	homeErr   error
 }
 
-func (f *fakeLibrary) GetItem(_ context.Context, _, itemID string) (*media.Detail, error) {
+func (f *fakeLibrary) GetItem(_ context.Context, _, _ string) (*media.Detail, error) {
 	return f.detail, f.detailErr
 }
 func (f *fakeLibrary) List(_ context.Context, _ string, _ media.ListOpts) (*media.ListResult, error) {

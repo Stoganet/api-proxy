@@ -160,7 +160,7 @@ func TestStream_AuthorizationHeader_NotForwardedToJellyfin(t *testing.T) {
 }
 
 func TestStream_JellyfinNotFound_Returns404(t *testing.T) {
-	jfSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	jfSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer jfSrv.Close()

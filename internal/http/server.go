@@ -55,7 +55,11 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL str
 		},
 	})
 
-	return RequestID(Logging(logger)(gen.Handler(strict)))
+	mux := stdhttp.NewServeMux()
+	mux.Handle("GET /stream/{jfId}", requireJWT(authSvc, newStreamHandler(authSvc, jellyfinBaseURL, logger)))
+	mux.Handle("/", gen.Handler(strict))
+
+	return RequestID(Logging(logger)(mux))
 }
 
 // jwtStrictMiddleware enforces Bearer JWT auth on all endpoints except the
