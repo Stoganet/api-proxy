@@ -17,7 +17,8 @@ flowchart LR
 
   subgraph proxy["cmd/api-proxy"]
     Auth[JWT auth middleware]
-    Catalog[Catalog service]
+    Library[Library service]
+    Stream[Stream proxy]
   end
 
   subgraph Backends
@@ -29,13 +30,15 @@ flowchart LR
 
   TV --> Auth
   Web --> Auth
-  Auth --> Catalog
-  Catalog --> JF
-  Catalog -.-> Arr
+  Auth --> Library
+  Auth --> Stream
+  Library --> JF
+  Stream --> JF
+  Library -.-> Arr
   Auth --> DB
 ```
 
-The proxy issues its own JWT pair on login. Jellyfin credentials are stored server-side and never sent to clients. Playback is handed off via short-lived Jellyfin tokens embedded in the detail response.
+The proxy issues its own JWT pair on login. Jellyfin credentials are stored server-side and never sent to clients. Playback goes through the proxy's `/stream/{jfId}` endpoint — clients never talk to Jellyfin directly.
 
 ## REST API
 
@@ -52,12 +55,19 @@ The OpenAPI spec lives at [`api/openapi.yaml`](./api/openapi.yaml). The server i
 | `POST` | `/auth/quick-connect/start` | none | Begin a Jellyfin Quick Connect handshake |
 | `POST` | `/auth/quick-connect/poll` | none | Poll Quick Connect approval |
 
-### Catalog
+### Library
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/catalog` | JWT | Paginated media browse (`type`, `limit`, `cursor`) |
-| `GET` | `/catalog/{id}` | JWT | Item detail + playback handoff |
+| `GET` | `/library` | JWT | Paginated media browse (`type`, `limit`, `cursor`) |
+| `GET` | `/library/{id}` | JWT | Item detail + stream URL |
+| `GET` | `/home` | JWT | Home screen sections (continue watching, latest, etc.) |
+
+### Stream
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/stream/{jfId}` | JWT | Byte-stream proxy to Jellyfin; handles Range / 206 natively |
 
 ### Health
 
@@ -83,9 +93,9 @@ Catalog IDs are proxy-scoped composite strings, not raw Jellyfin UUIDs.
 
 Always pass catalog IDs from list/detail responses back to the proxy. Never construct Jellyfin UUIDs manually.
 
-### Catalog detail response
+### Library detail response
 
-`GET /catalog/{id}` returns a `CatalogDetail` with a `play` block when the item is playable:
+`GET /library/{id}` returns a `LibraryDetail` with a `play` block when the item is playable:
 
 ```json
 {
@@ -102,15 +112,12 @@ Always pass catalog IDs from list/detail responses back to the proxy. Never cons
   "cast": [{ "name": "Keanu Reeves", "role": "Actor" }],
   "seasons": 0,
   "play": {
-    "jellyfin_item_id": "<jellyfin uuid>",
-    "jellyfin_base_url": "https://jellyfin.example.com",
-    "jellyfin_access_token": "<user jellyfin token>",
-    "jellyfin_user_id": "<jellyfin user uuid>"
+    "stream_url": "https://api.stoganet.com/stream/<jfId>"
   }
 }
 ```
 
-The client passes all four `play.*` fields to the Jellyfin SDK to start a playback session directly.
+To start playback, hit `stream_url` with the same `Authorization: Bearer <access_token>` header used for every other request. The proxy fetches Jellyfin credentials server-side and pipes the byte stream through. Range requests are supported — send `Range: bytes=N-M`, expect `206 Partial Content`.
 
 `state` is always `playable` until Sonarr/Radarr integration is added.
 
@@ -133,11 +140,11 @@ Error codes: `invalid_credentials`, `account_locked`, `token_expired`, `token_in
 | [`cmd/api-proxy/`](./cmd/api-proxy) | Binary entrypoint: config, wiring, graceful shutdown |
 | [`internal/gen/`](./internal/gen) | Code-generated server stubs and types — do not edit |
 | [`internal/auth/`](./internal/auth) | JWT issue/verify, refresh token store, Jellyfin login adapter |
-| [`internal/catalog/`](./internal/catalog) | Catalog domain types, ID mapping, service, mapper |
+| [`internal/media/`](./internal/media) | Media domain types, ID mapping, service, mapper |
 | [`internal/clients/jellyfin/`](./internal/clients/jellyfin) | Thin Jellyfin HTTP client (auth, items) |
 | [`internal/config/`](./internal/config) | Env-based config loader |
 | [`internal/db/`](./internal/db) | SQLite connection and schema migrations |
-| [`internal/http/`](./internal/http) | HTTP server, JWT middleware, request handlers |
+| [`internal/http/`](./internal/http) | HTTP server, JWT middleware, request handlers, stream proxy |
 
 ## Running
 
@@ -145,7 +152,7 @@ Error codes: `invalid_credentials`, `account_locked`, `token_expired`, `token_in
 
 ```sh
 cp compose/.env.example compose/.env
-# Edit compose/.env: set JELLYFIN_URL, JELLYFIN_API_KEY, and a 32-byte JWT_SIGNING_KEY
+# Edit compose/.env: set JELLYFIN_URL, JELLYFIN_API_KEY, PROXY_BASE_URL, and a 32-byte JWT_SIGNING_KEY
 docker compose -f compose/docker-compose.yml up
 ```
 
@@ -156,6 +163,7 @@ API available at `http://localhost:8080`.
 ```sh
 export JELLYFIN_URL=http://localhost:8096
 export JELLYFIN_API_KEY=your-api-key
+export PROXY_BASE_URL=http://localhost:8080
 export JWT_SIGNING_KEY=$(openssl rand -hex 32)
 export DB_PATH=./api-proxy.sqlite
 export LISTEN_ADDR=:8080
@@ -169,6 +177,7 @@ make run
 |----------|----------|-------------|
 | `JELLYFIN_URL` | yes | Base URL of your Jellyfin instance |
 | `JELLYFIN_API_KEY` | yes | Jellyfin API key (Settings → API Keys) |
+| `PROXY_BASE_URL` | yes | Public base URL of this proxy (e.g. `https://api.stoganet.com`) — used to build `stream_url` in responses |
 | `JWT_SIGNING_KEY` | yes | Secret for HS256 JWT signing — minimum 32 bytes. Generate: `openssl rand -hex 32` |
 | `DB_PATH` | yes | SQLite file path (e.g. `/data/api-proxy.sqlite`) |
 | `LISTEN_ADDR` | yes | TCP address to bind (e.g. `:8080`) |

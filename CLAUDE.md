@@ -34,11 +34,23 @@ net/http → RequestID → Logging → gen.Handler(strict) → jwtStrictMiddlewa
 
 `media.Service.resolveItem()` handles translation. Never pass catalog IDs verbatim to Jellyfin.
 
-**Playback handoff.** `media.Detail.Play` carries `JellyfinAccessToken` fetched from the `users` table via `auth.GetJellyfinToken`. Clients send all four `play.*` fields to the Jellyfin SDK.
+**Playback handoff.** `media.Detail.Play` carries a single `StreamURL` pointing at `GET /stream/{jfId}` on this proxy. Clients hit that URL with their proxy JWT — no Jellyfin SDK or credentials needed. The stream handler fetches the Jellyfin token per request from the `users` table via `auth.GetJellyfinToken` and proxies bytes through `httputil.ReverseProxy`.
 
 **SQLite + embedded migrations.** `internal/db/` opens SQLite with WAL-friendly pragmas and runs all `migrations/*.sql` files at startup (embedded via `//go:embed`). SQL queries must use parameterised placeholders.
 
 **Auth package isolation.** `internal/auth` must never import `internal/clients/jellyfin`. It owns its own `JellyfinAuthenticator` interface to stay decoupled.
+
+## Go code quality (always check)
+
+**Hoisting.** If a function returns a handler or closure, construct expensive objects (proxies, clients, compiled regexes) in the outer function — once at startup — not inside the returned closure where they'd be rebuilt per request.
+
+**URL building.** Use `url.JoinPath` when composing URLs from path segments. Never `fmt.Sprintf` — it does not encode special characters (`?`, `#`, `%`) in segments, which corrupts URL structure if user-controlled input is involved.
+
+**Discarded returns.** Every `_, _` discard needs a comment or a clear structural reason. Type assertion discards (`v, _ := x.(T)`) are acceptable only when the value is guaranteed by code structure (e.g. always set by middleware before the handler runs). `RowsAffected()` discards are acceptable on SQLite when the zero case is handled explicitly on the next line.
+
+**`Rewrite` over `Director`.** `httputil.ReverseProxy.Director` is deprecated since Go 1.20. Use `Rewrite func(*ProxyRequest)` instead.
+
+**`url.Parse` errors.** Never ignore the error from `url.Parse` with `_`. A malformed base URL returns `(nil, err)` — any method call on nil panics.
 
 ## Security invariants (always check)
 
