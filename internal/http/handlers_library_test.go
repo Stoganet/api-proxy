@@ -21,7 +21,7 @@ type fakeLibrary struct {
 	homeErr   error
 }
 
-func (f *fakeLibrary) GetItem(_ context.Context, _, _, _ string) (*media.Detail, error) {
+func (f *fakeLibrary) GetItem(_ context.Context, _, itemID string) (*media.Detail, error) {
 	return f.detail, f.detailErr
 }
 func (f *fakeLibrary) List(_ context.Context, _ string, _ media.ListOpts) (*media.ListResult, error) {
@@ -68,10 +68,7 @@ func TestGetLibraryId_Returns200WithDetail(t *testing.T) {
 		Runtime: 136,
 		Genres:  []string{"Action"},
 		Play: &media.PlayInfo{
-			JellyfinItemID:      "jf-abc",
-			JellyfinBaseURL:     "https://jf.example.com",
-			JellyfinAccessToken: "jf-tok",
-			JellyfinUserID:      "jf-uid",
+			StreamURL: "https://api.stoganet.com/stream/jf-abc",
 		},
 	}}
 

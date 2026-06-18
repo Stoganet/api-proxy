@@ -21,7 +21,7 @@ func toItem(jf jellyfin.Item, baseURL string) Item {
 	}
 }
 
-func toDetail(jf jellyfin.Item, baseURL, jfToken, jfUserID string) Detail {
+func toDetail(jf jellyfin.Item, jellyfinBaseURL, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
@@ -38,16 +38,13 @@ func toDetail(jf jellyfin.Item, baseURL, jfToken, jfUserID string) Detail {
 	}
 
 	return Detail{
-		Item:    toItem(jf, baseURL),
+		Item:    toItem(jf, jellyfinBaseURL),
 		Genres:  jf.Genres,
 		Runtime: runtime,
 		Cast:    cast,
 		Seasons: seasons,
 		Play: &PlayInfo{
-			JellyfinItemID:      jf.ID,
-			JellyfinBaseURL:     baseURL,
-			JellyfinAccessToken: jfToken,
-			JellyfinUserID:      jfUserID,
+			StreamURL: proxyBaseURL + "/stream/" + jf.ID,
 		},
 	}
 }

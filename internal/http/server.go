@@ -26,7 +26,7 @@ type authService interface {
 }
 
 type libraryService interface {
-	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*media.Detail, error)
+	GetItem(ctx context.Context, jfUserID, itemID string) (*media.Detail, error)
 	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
 	Home(ctx context.Context, jfUserID string) (*media.HomeResult, error)
 }
@@ -37,7 +37,7 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(authSvc *auth.Service, libSvc *media.Service, logger *slog.Logger) stdhttp.Handler {
+func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL string, logger *slog.Logger) stdhttp.Handler {
 	s := &Server{auth: authSvc, library: libSvc, logger: logger}
 
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
