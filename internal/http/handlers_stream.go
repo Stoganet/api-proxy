@@ -1,7 +1,7 @@
 package http
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
 	stdhttp "net/http"
 	"net/http/httputil"
@@ -10,7 +10,31 @@ import (
 	"github.com/Stoganet/api-proxy/internal/gen"
 )
 
+type ctxStreamKey struct{}
+
 func newStreamHandler(authSvc authService, jellyfinBaseURL string, logger *slog.Logger) stdhttp.Handler {
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			target, _ := pr.In.Context().Value(ctxStreamKey{}).(*url.URL)
+			pr.Out.URL = target
+			pr.Out.Host = target.Host
+			pr.Out.Header.Del("Authorization") // do not forward client JWT to Jellyfin
+		},
+		ModifyResponse: func(resp *stdhttp.Response) error {
+			if resp.StatusCode >= 400 {
+				resp.Body.Close()
+				resp.Body = stdhttp.NoBody
+				resp.ContentLength = 0
+				resp.Header.Del("Content-Type")
+			}
+			return nil
+		},
+		ErrorHandler: func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+			logger.ErrorContext(r.Context(), "stream: jellyfin unreachable", "err", err)
+			w.WriteHeader(stdhttp.StatusServiceUnavailable)
+		},
+	}
+
 	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		jfID := r.PathValue("jfId")
 		userID := userIDFromCtx(r.Context())
@@ -22,7 +46,13 @@ func newStreamHandler(authSvc authService, jellyfinBaseURL string, logger *slog.
 			return
 		}
 
-		target, err := url.Parse(fmt.Sprintf("%s/Videos/%s/stream", jellyfinBaseURL, jfID))
+		raw, err := url.JoinPath(jellyfinBaseURL, "Videos", jfID, "stream")
+		if err != nil {
+			logger.ErrorContext(r.Context(), "stream: malformed jellyfin base URL", "err", err)
+			writeError(w, r, stdhttp.StatusServiceUnavailable, gen.BackendUnavailable, "upstream error")
+			return
+		}
+		target, err := url.Parse(raw)
 		if err != nil {
 			logger.ErrorContext(r.Context(), "stream: malformed jellyfin base URL", "err", err)
 			writeError(w, r, stdhttp.StatusServiceUnavailable, gen.BackendUnavailable, "upstream error")
@@ -33,27 +63,7 @@ func newStreamHandler(authSvc authService, jellyfinBaseURL string, logger *slog.
 		q.Set("api_key", jfToken)
 		target.RawQuery = q.Encode()
 
-		proxy := &httputil.ReverseProxy{
-			Director: func(req *stdhttp.Request) {
-				req.URL = target
-				req.Host = target.Host
-				req.Header.Del("Authorization") // do not forward client JWT to Jellyfin
-			},
-			ModifyResponse: func(resp *stdhttp.Response) error {
-				if resp.StatusCode >= 400 {
-					resp.Body.Close()
-					resp.Body = stdhttp.NoBody
-					resp.ContentLength = 0
-					resp.Header.Del("Content-Type")
-				}
-				return nil
-			},
-			ErrorHandler: func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
-				logger.ErrorContext(r.Context(), "stream: jellyfin unreachable", "err", err)
-				w.WriteHeader(stdhttp.StatusServiceUnavailable)
-			},
-		}
-
-		proxy.ServeHTTP(w, r)
+		ctx := context.WithValue(r.Context(), ctxStreamKey{}, target)
+		proxy.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
