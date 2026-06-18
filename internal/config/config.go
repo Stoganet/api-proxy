@@ -16,6 +16,7 @@ type Config struct {
 	JWTSigningKey  []byte
 	DBPath         string
 	ListenAddr     string
+	ProxyBaseURL   string
 }
 
 func Load(override envMap) (*Config, error) {
@@ -34,6 +35,7 @@ func Load(override envMap) (*Config, error) {
 		"JWT_SIGNING_KEY",
 		"DB_PATH",
 		"LISTEN_ADDR",
+		"PROXY_BASE_URL",
 	}
 	var missing []string
 	for _, k := range required {
@@ -56,6 +58,7 @@ func Load(override envMap) (*Config, error) {
 		JWTSigningKey:  key,
 		DBPath:         get("DB_PATH"),
 		ListenAddr:     get("LISTEN_ADDR"),
+		ProxyBaseURL:   get("PROXY_BASE_URL"),
 	}, nil
 }
 

@@ -19,6 +19,7 @@ func TestLoad_AllRequiredPresent(t *testing.T) {
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
 		"DB_PATH":          "/tmp/api-proxy.sqlite",
 		"LISTEN_ADDR":      ":8080",
+		"PROXY_BASE_URL":   "https://api.stoganet.com",
 	}
 	c, err := Load(env)
 	if err != nil {
@@ -26,6 +27,23 @@ func TestLoad_AllRequiredPresent(t *testing.T) {
 	}
 	if c.JellyfinURL != "http://jellyfin:8096" {
 		t.Errorf("got %q", c.JellyfinURL)
+	}
+	if c.ProxyBaseURL != "https://api.stoganet.com" {
+		t.Errorf("got %q", c.ProxyBaseURL)
+	}
+}
+
+func TestLoad_MissingProxyBaseURL_ReturnsError(t *testing.T) {
+	env := envMap{
+		"JELLYFIN_URL":     "http://jellyfin:8096",
+		"JELLYFIN_API_KEY": "abc",
+		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
+		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"LISTEN_ADDR":      ":8080",
+		// PROXY_BASE_URL intentionally absent
+	}
+	if _, err := Load(env); err == nil {
+		t.Fatal("expected error for missing PROXY_BASE_URL")
 	}
 }
 
@@ -36,6 +54,7 @@ func TestLoad_JWTKeyTooShort(t *testing.T) {
 		"JWT_SIGNING_KEY":  "short",
 		"DB_PATH":          "/tmp/api-proxy.sqlite",
 		"LISTEN_ADDR":      ":8080",
+		"PROXY_BASE_URL":   "https://api.stoganet.com",
 	}
 	if _, err := Load(env); err == nil {
 		t.Fatal("expected error for short JWT_SIGNING_KEY")
