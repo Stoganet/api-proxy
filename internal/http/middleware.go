@@ -2,11 +2,16 @@ package http
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	stdhttp "net/http"
+	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
+	"github.com/Stoganet/api-proxy/internal/gen"
 )
 
 type ctxKey int
@@ -64,4 +69,29 @@ func (s *statusRecorder) WriteHeader(code int) {
 func requestIDFromCtx(ctx context.Context) string {
 	v, _ := ctx.Value(ctxRequestID).(string)
 	return v
+}
+
+// requireJWT is a plain http.Handler middleware that validates Bearer JWT auth.
+// It is used for endpoints (like /stream) that are not routed through the
+// oapi-codegen strict server.
+func requireJWT(svc authService, next stdhttp.Handler) stdhttp.Handler {
+	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		h := r.Header.Get("Authorization")
+		if !strings.HasPrefix(h, "Bearer ") {
+			writeError(w, r, stdhttp.StatusUnauthorized, gen.TokenInvalid, "missing bearer token")
+			return
+		}
+		tok := strings.TrimPrefix(h, "Bearer ")
+		claims, err := svc.VerifyJWT(tok)
+		if err != nil {
+			code := gen.TokenInvalid
+			if errors.Is(err, jwt.ErrTokenExpired) {
+				code = gen.TokenExpired
+			}
+			writeError(w, r, stdhttp.StatusUnauthorized, code, "invalid or expired token")
+			return
+		}
+		ctx := context.WithValue(r.Context(), ctxUserID, claims.UserID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
