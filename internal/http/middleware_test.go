@@ -148,5 +148,67 @@ func newTestAuthSvc(t *testing.T) *auth.Service {
 	})
 }
 
+func TestRequireJWT_MissingHeader_Returns401(t *testing.T) {
+	svc := newTestAuthSvc(t)
+	called := false
+	h := requireJWT(svc, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/stream/abc", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d, want 401", w.Code)
+	}
+	if called {
+		t.Fatal("inner handler must not be called when JWT missing")
+	}
+}
+
+func TestRequireJWT_ValidToken_CallsInner(t *testing.T) {
+	svc := newTestAuthSvc(t)
+	tok, err := svc.IssueAccessTokenForTest("user-1", "a@b", "jf-1")
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+
+	var gotUserID string
+	h := requireJWT(svc, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = userIDFromCtx(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/stream/abc", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("got %d, want 200", w.Code)
+	}
+	if gotUserID != "user-1" {
+		t.Errorf("userID in context: got %q, want %q", gotUserID, "user-1")
+	}
+}
+
+func TestRequireJWT_InvalidToken_Returns401(t *testing.T) {
+	svc := newTestAuthSvc(t)
+	h := requireJWT(svc, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/stream/abc", nil)
+	req.Header.Set("Authorization", "Bearer not.a.jwt")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d, want 401", w.Code)
+	}
+}
+
 // Ensure Server satisfies the generated StrictServerInterface at compile time.
 var _ gen.StrictServerInterface = (*Server)(nil)

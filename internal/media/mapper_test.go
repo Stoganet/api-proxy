@@ -24,7 +24,7 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		},
 	}
 
-	got := toDetail(item, "https://jf.example.com", "jf-tok-123", "jf-uid-456")
+	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
 
 	fields := []struct {
 		name string
@@ -57,17 +57,9 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	if got.Play == nil {
 		t.Fatal("Play must not be nil for playable item")
 	}
-	if got.Play.JellyfinItemID != "jf-abc" {
-		t.Errorf("Play.JellyfinItemID: got %q", got.Play.JellyfinItemID)
-	}
-	if got.Play.JellyfinAccessToken != "jf-tok-123" {
-		t.Errorf("Play.JellyfinAccessToken: got %q", got.Play.JellyfinAccessToken)
-	}
-	if got.Play.JellyfinUserID != "jf-uid-456" {
-		t.Errorf("Play.JellyfinUserID: got %q", got.Play.JellyfinUserID)
-	}
-	if got.Play.JellyfinBaseURL != "https://jf.example.com" {
-		t.Errorf("Play.JellyfinBaseURL: got %q", got.Play.JellyfinBaseURL)
+	wantStreamURL := "https://api.stoganet.com/stream/jf-abc"
+	if got.Play.StreamURL != wantStreamURL {
+		t.Errorf("Play.StreamURL: got %q, want %q", got.Play.StreamURL, wantStreamURL)
 	}
 }
 
@@ -80,7 +72,7 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 		ChildCount: 3,
 	}
 
-	got := toDetail(item, "https://jf.example.com", "tok", "uid")
+	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
 
 	if got.ID != "jf:jf-xyz" {
 		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-xyz")
@@ -104,7 +96,7 @@ func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 		ProviderIDs: map[string]string{"Tmdb": "1396"},
 	}
 
-	got := toDetail(item, "https://jf.example.com", "tok", "uid")
+	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
 
 	if got.ID != "tmdb:tv:1396" {
 		t.Errorf("ID: got %q, want %q", got.ID, "tmdb:tv:1396")

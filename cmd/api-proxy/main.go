@@ -42,9 +42,9 @@ func main() {
 		Jellyfin: jellyfin.AsAuthAdapter(jfClient),
 		SignKey:  cfg.JWTSigningKey,
 	})
-	libSvc := media.NewService(jfClient, cfg.JellyfinURL)
+	libSvc := media.NewService(jfClient, cfg.JellyfinURL, cfg.ProxyBaseURL)
 
-	srv := apihttp.NewServer(authSvc, libSvc, logger)
+	srv := apihttp.NewServer(authSvc, libSvc, cfg.JellyfinURL, logger)
 	httpSrv := &stdhttp.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           srv,

@@ -18,20 +18,21 @@ type JellyfinClient interface {
 }
 
 type Service struct {
-	jf      JellyfinClient
-	baseURL string
+	jf           JellyfinClient
+	baseURL      string
+	proxyBaseURL string
 }
 
-func NewService(jf JellyfinClient, jellyfinBaseURL string) *Service {
-	return &Service{jf: jf, baseURL: jellyfinBaseURL}
+func NewService(jf JellyfinClient, jellyfinBaseURL, proxyBaseURL string) *Service {
+	return &Service{jf: jf, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL}
 }
 
-func (s *Service) GetItem(ctx context.Context, jfUserID, jfToken, catalogID string) (*Detail, error) {
+func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Detail, error) {
 	item, err := s.resolveItem(ctx, jfUserID, catalogID)
 	if err != nil {
 		return nil, err
 	}
-	d := toDetail(*item, s.baseURL, jfToken, jfUserID)
+	d := toDetail(*item, s.baseURL, s.proxyBaseURL)
 	return &d, nil
 }
 

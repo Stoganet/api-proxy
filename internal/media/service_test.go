@@ -27,7 +27,7 @@ func (f *fakeJF) GetItems(_ context.Context, _ string, opts jellyfin.GetItemsOpt
 }
 
 func newSvc(jf JellyfinClient) *Service {
-	return NewService(jf, "https://jf.example.com")
+	return NewService(jf, "https://jf.example.com", "https://api.stoganet.com")
 }
 
 func TestService_GetItem_JFPrefix_StripsPrefix(t *testing.T) {
@@ -37,7 +37,7 @@ func TestService_GetItem_JFPrefix_StripsPrefix(t *testing.T) {
 		Type: "Movie",
 	}}
 	svc := newSvc(jf)
-	_, err := svc.GetItem(context.Background(), "jf-user-1", "tok", "jf:abc-uuid")
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "jf:abc-uuid")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestService_GetItem_TMDBPrefix_UsesProviderIDSearch(t *testing.T) {
 		TotalCount: 1,
 	}}
 	svc := newSvc(jf)
-	d, err := svc.GetItem(context.Background(), "jf-user-1", "tok", "tmdb:movie:603")
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:603")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestService_GetItem_TMDBPrefix_UsesProviderIDSearch(t *testing.T) {
 func TestService_GetItem_TMDBPrefix_NotInJellyfin_ReturnsNotFound(t *testing.T) {
 	jf := &fakeJF{items: &jellyfin.ItemsResult{Items: []jellyfin.Item{}, TotalCount: 0}}
 	svc := newSvc(jf)
-	_, err := svc.GetItem(context.Background(), "jf-user-1", "tok", "tmdb:movie:999")
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:999")
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Fatalf("want ErrItemNotFound, got %v", err)
 	}
@@ -80,7 +80,7 @@ func TestService_GetItem_TMDBPrefix_NotInJellyfin_ReturnsNotFound(t *testing.T) 
 
 func TestService_GetItem_InvalidID_ReturnsNotFound(t *testing.T) {
 	svc := newSvc(&fakeJF{})
-	_, err := svc.GetItem(context.Background(), "jf-user-1", "tok", "not-a-valid-id")
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "not-a-valid-id")
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Fatalf("want ErrItemNotFound, got %v", err)
 	}
@@ -89,7 +89,7 @@ func TestService_GetItem_InvalidID_ReturnsNotFound(t *testing.T) {
 func TestService_GetItem_PropagatesNotFound(t *testing.T) {
 	jf := &fakeJF{err: jellyfin.ErrItemNotFound}
 	svc := newSvc(jf)
-	_, err := svc.GetItem(context.Background(), "jf-user-1", "tok", "jf:missing-uuid")
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "jf:missing-uuid")
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Fatalf("want ErrItemNotFound, got %v", err)
 	}
@@ -105,15 +105,15 @@ func TestService_GetItem_ReturnsDetail(t *testing.T) {
 		Runtime:     81_600_000_000,
 	}}
 	svc := newSvc(jf)
-	d, err := svc.GetItem(context.Background(), "jf-user-1", "jf-tok", "jf:jf-1")
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "jf:jf-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if d.ID != "tmdb:movie:603" {
 		t.Errorf("ID: got %q", d.ID)
 	}
-	if d.Play == nil || d.Play.JellyfinAccessToken != "jf-tok" {
-		t.Errorf("Play.JellyfinAccessToken not propagated")
+	if d.Play == nil || d.Play.StreamURL != "https://api.stoganet.com/stream/jf-1" {
+		t.Errorf("Play.StreamURL: got %q", d.Play.StreamURL)
 	}
 }
 

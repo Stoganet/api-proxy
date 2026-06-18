@@ -36,10 +36,7 @@ type Detail struct {
 }
 
 type PlayInfo struct {
-	JellyfinItemID      string
-	JellyfinBaseURL     string
-	JellyfinAccessToken string
-	JellyfinUserID      string
+	StreamURL string
 }
 
 type CastMember struct {

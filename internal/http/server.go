@@ -26,7 +26,7 @@ type authService interface {
 }
 
 type libraryService interface {
-	GetItem(ctx context.Context, jfUserID, jfToken, itemID string) (*media.Detail, error)
+	GetItem(ctx context.Context, jfUserID, itemID string) (*media.Detail, error)
 	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
 	Home(ctx context.Context, jfUserID string) (*media.HomeResult, error)
 }
@@ -37,7 +37,7 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(authSvc *auth.Service, libSvc *media.Service, logger *slog.Logger) stdhttp.Handler {
+func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL string, logger *slog.Logger) stdhttp.Handler {
 	s := &Server{auth: authSvc, library: libSvc, logger: logger}
 
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
@@ -55,7 +55,11 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, logger *slog.Logger
 		},
 	})
 
-	return RequestID(Logging(logger)(gen.Handler(strict)))
+	mux := stdhttp.NewServeMux()
+	mux.Handle("GET /stream/{jfId}", requireJWT(authSvc, newStreamHandler(authSvc, jellyfinBaseURL, logger)))
+	mux.Handle("/", gen.Handler(strict))
+
+	return RequestID(Logging(logger)(mux))
 }
 
 // jwtStrictMiddleware enforces Bearer JWT auth on all endpoints except the

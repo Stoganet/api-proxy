@@ -93,12 +93,9 @@ components:
 
     PlayInfo:
       type: object
-      required: [jellyfin_item_id, jellyfin_base_url, jellyfin_access_token, jellyfin_user_id]
+      required: [stream_url]
       properties:
-        jellyfin_item_id:      { type: string }
-        jellyfin_base_url:     { type: string }
-        jellyfin_access_token: { type: string }
-        jellyfin_user_id:      { type: string }
+        stream_url: { type: string }
 
     CastMember:
       type: object
