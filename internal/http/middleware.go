@@ -92,6 +92,7 @@ func requireJWT(svc authService, next stdhttp.Handler) stdhttp.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxUserID, claims.UserID)
+		ctx = context.WithValue(ctx, ctxJFUserID, claims.JFUserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

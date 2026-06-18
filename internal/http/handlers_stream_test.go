@@ -159,9 +159,11 @@ func TestStream_AuthorizationHeader_NotForwardedToJellyfin(t *testing.T) {
 	}
 }
 
-func TestStream_JellyfinNotFound_Returns404(t *testing.T) {
+func TestStream_JellyfinNotFound_Returns404WithEmptyBody(t *testing.T) {
 	jfSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"Item not found"}`))
 	}))
 	defer jfSrv.Close()
 
@@ -178,5 +180,8 @@ func TestStream_JellyfinNotFound_Returns404(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("got %d, want 404", w.Code)
+	}
+	if body := w.Body.String(); body != "" {
+		t.Errorf("jellyfin error body must not reach client, got %q", body)
 	}
 }
