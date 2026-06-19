@@ -178,15 +178,16 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 		}
 	}
 	if d.Resume != nil {
-		thumbnail := d.Resume.Thumbnail
 		detail.Resume = &gen.ResumeInfo{
 			SeasonNumber:  d.Resume.SeasonNumber,
 			EpisodeNumber: d.Resume.EpisodeNumber,
 			EpisodeId:     d.Resume.EpisodeID,
 			Title:         d.Resume.Title,
-			Thumbnail:     &thumbnail,
 			Play:          gen.PlayInfo{StreamUrl: d.Resume.Play.StreamURL},
 			Progress:      gen.WatchProgress{PositionMs: d.Resume.Progress.PositionMS, Played: d.Resume.Progress.Played},
+		}
+		if d.Resume.Thumbnail != "" {
+			detail.Resume.Thumbnail = &d.Resume.Thumbnail
 		}
 	}
 

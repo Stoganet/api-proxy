@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -197,6 +198,20 @@ func TestGetLibraryIdSeasonsSeasonNumberEpisodes_ShowNotFound_Returns404(t *test
 	}
 	e := decodeError(t, w)
 	if e.Error.Code != gen.ItemNotFound {
+		t.Errorf("code: got %q", e.Error.Code)
+	}
+}
+
+func TestGetLibraryIdSeasonsSeasonNumberEpisodes_UpstreamError_Returns503(t *testing.T) {
+	fc := &fakeLibrary{episodesErr: errors.New("upstream timeout")}
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/tmdb:tv:1396/seasons/1/episodes")
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status: got %d, want 503", w.Code)
+	}
+	e := decodeError(t, w)
+	if e.Error.Code != gen.BackendUnavailable {
 		t.Errorf("code: got %q", e.Error.Code)
 	}
 }
