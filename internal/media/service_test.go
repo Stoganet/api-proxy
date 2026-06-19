@@ -355,7 +355,7 @@ func TestGetEpisodes_ReturnsMappedEpisodes(t *testing.T) {
 	}
 }
 
-func TestGetEpisodes_SeasonNotFound_ReturnsErrItemNotFound(t *testing.T) {
+func TestGetEpisodes_JellyfinSeriesNotFound_ReturnsErrItemNotFound(t *testing.T) {
 	jf := &fakeJF{
 		item:           &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
 		getEpisodesErr: jellyfin.ErrItemNotFound,
@@ -364,5 +364,20 @@ func TestGetEpisodes_SeasonNotFound_ReturnsErrItemNotFound(t *testing.T) {
 	_, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Errorf("got %v, want ErrItemNotFound", err)
+	}
+}
+
+func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
+	jf := &fakeJF{
+		item:        &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
+		getEpisodes: []jellyfin.Episode{},
+	}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(eps) != 0 {
+		t.Errorf("expected empty slice, got %d", len(eps))
 	}
 }

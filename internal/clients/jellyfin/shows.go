@@ -41,6 +41,7 @@ func (c *Client) GetSeasons(ctx context.Context, userID, seriesID string) ([]Sea
 	q.Set("UserId", userID)
 	q.Set("Fields", "Overview")
 	req.URL.RawQuery = q.Encode()
+	req.Header.Set("X-Emby-Authorization", authHeader(userID))
 	req.Header.Set("X-Emby-Token", c.apiKey)
 
 	resp, err := c.hc.Do(req)
@@ -87,6 +88,7 @@ func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seaso
 	q.Set("SeasonNumber", fmt.Sprintf("%d", seasonNumber))
 	q.Set("Fields", "Overview,UserData,RunTimeTicks")
 	req.URL.RawQuery = q.Encode()
+	req.Header.Set("X-Emby-Authorization", authHeader(userID))
 	req.Header.Set("X-Emby-Token", c.apiKey)
 
 	resp, err := c.hc.Do(req)
@@ -107,10 +109,6 @@ func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seaso
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("jellyfin GetEpisodes: decode: %w", err)
-	}
-
-	if len(body.Items) == 0 {
-		return nil, ErrItemNotFound
 	}
 
 	episodes := make([]Episode, len(body.Items))
@@ -134,6 +132,7 @@ func (c *Client) GetNextUp(ctx context.Context, userID, seriesID string) (*Episo
 	q.Set("SeriesId", seriesID)
 	q.Set("Fields", "UserData")
 	req.URL.RawQuery = q.Encode()
+	req.Header.Set("X-Emby-Authorization", authHeader(userID))
 	req.Header.Set("X-Emby-Token", c.apiKey)
 
 	resp, err := c.hc.Do(req)

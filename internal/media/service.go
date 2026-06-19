@@ -43,13 +43,29 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 }
 
 func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jellyfin.Item) (*Detail, error) {
-	seasons, err := s.jf.GetSeasons(ctx, jfUserID, item.ID)
-	if err != nil {
-		return nil, fmt.Errorf("getSeriesDetail: GetSeasons: %w", err)
+	var (
+		seasons    []jellyfin.Season
+		seasonsErr error
+		nextUp     *jellyfin.Episode
+		nextUpErr  error
+	)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		seasons, seasonsErr = s.jf.GetSeasons(ctx, jfUserID, item.ID)
+	}()
+	go func() {
+		defer wg.Done()
+		nextUp, nextUpErr = s.jf.GetNextUp(ctx, jfUserID, item.ID)
+	}()
+	wg.Wait()
+
+	if seasonsErr != nil {
+		return nil, fmt.Errorf("getSeriesDetail: GetSeasons: %w", seasonsErr)
 	}
-	nextUp, err := s.jf.GetNextUp(ctx, jfUserID, item.ID)
-	if err != nil {
-		return nil, fmt.Errorf("getSeriesDetail: GetNextUp: %w", err)
+	if nextUpErr != nil {
+		return nil, fmt.Errorf("getSeriesDetail: GetNextUp: %w", nextUpErr)
 	}
 	d := toSeriesDetail(item, seasons, nextUp, s.baseURL, s.proxyBaseURL)
 	return &d, nil

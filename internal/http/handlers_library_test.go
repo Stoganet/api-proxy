@@ -155,15 +155,6 @@ func TestGetLibraryId_NoAuth_Returns401(t *testing.T) {
 	}
 }
 
-func newEpisodeServer(t *testing.T, fa *fakeAuth, fc *fakeLibrary) http.Handler {
-	t.Helper()
-	s := &Server{auth: fa, library: fc}
-	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
-		jwtStrictMiddleware(fa),
-	}, gen.StrictHTTPServerOptions{})
-	return gen.Handler(strict)
-}
-
 func TestGetLibraryIdSeasonsSeasonNumberEpisodes_Returns200(t *testing.T) {
 	thumbnail := "https://jf.example.com/Items/ep1/Images/Primary"
 	fc := &fakeLibrary{
@@ -178,7 +169,7 @@ func TestGetLibraryIdSeasonsSeasonNumberEpisodes_Returns200(t *testing.T) {
 			},
 		},
 	}
-	h := newEpisodeServer(t, authedFakeAuth(), fc)
+	h := newLibraryServer(t, authedFakeAuth(), fc)
 	w := authedGet(t, h, "/library/tmdb:tv:1396/seasons/1/episodes")
 
 	if w.Code != http.StatusOK {
@@ -198,7 +189,7 @@ func TestGetLibraryIdSeasonsSeasonNumberEpisodes_Returns200(t *testing.T) {
 
 func TestGetLibraryIdSeasonsSeasonNumberEpisodes_ShowNotFound_Returns404(t *testing.T) {
 	fc := &fakeLibrary{episodesErr: media.ErrItemNotFound}
-	h := newEpisodeServer(t, authedFakeAuth(), fc)
+	h := newLibraryServer(t, authedFakeAuth(), fc)
 	w := authedGet(t, h, "/library/jf:unknown/seasons/1/episodes")
 
 	if w.Code != http.StatusNotFound {

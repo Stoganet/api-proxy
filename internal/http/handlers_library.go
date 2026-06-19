@@ -127,6 +127,8 @@ func toGenEpisode(ep media.Episode) gen.Episode {
 }
 
 func toGenDetail(d *media.Detail) gen.LibraryDetail {
+	base := toGenItem(d.Item)
+
 	cast := make([]gen.CastMember, len(d.Cast))
 	for i, c := range d.Cast {
 		cast[i] = gen.CastMember{Name: c.Name, Role: c.Role}
@@ -135,11 +137,6 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 	genres := d.Genres
 	if genres == nil {
 		genres = []string{}
-	}
-
-	var backdrop *string
-	if d.Backdrop != "" {
-		backdrop = &d.Backdrop
 	}
 
 	seasons := make([]gen.Season, len(d.Seasons))
@@ -157,14 +154,14 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 	}
 
 	detail := gen.LibraryDetail{
-		Id:       d.ID,
-		Title:    d.Title,
-		Year:     d.Year,
-		Type:     gen.MediaType(d.Type),
-		Poster:   d.Poster,
-		Backdrop: backdrop,
-		Overview: d.Overview,
-		State:    gen.MediaState(d.State),
+		Id:       base.Id,
+		Title:    base.Title,
+		Year:     base.Year,
+		Type:     base.Type,
+		Poster:   base.Poster,
+		Backdrop: base.Backdrop,
+		Overview: base.Overview,
+		State:    base.State,
 		Genres:   genres,
 		Runtime:  d.Runtime,
 		Cast:     cast,

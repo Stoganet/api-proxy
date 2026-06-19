@@ -65,16 +65,19 @@ func TestGetEpisodes_ReturnsParsedEpisodes(t *testing.T) {
 	}
 }
 
-func TestGetEpisodes_EmptyResult_ReturnsErrItemNotFound(t *testing.T) {
+func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})
 	}))
 	defer srv.Close()
 
 	c := &Client{baseURL: srv.URL, hc: srv.Client()}
-	_, err := c.GetEpisodes(context.Background(), "uid", "series1", 99)
-	if err != ErrItemNotFound {
-		t.Errorf("got %v, want ErrItemNotFound", err)
+	eps, err := c.GetEpisodes(context.Background(), "uid", "series1", 99)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(eps) != 0 {
+		t.Errorf("expected empty slice, got %d episodes", len(eps))
 	}
 }
 
