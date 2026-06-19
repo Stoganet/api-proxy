@@ -332,6 +332,49 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /stream/{jfId}:
+    get:
+      summary: Stream video bytes for a Jellyfin item
+      description: |
+        Proxies raw video bytes from Jellyfin. Implemented outside the oapi-codegen
+        strict server (binary, not JSON) and wired directly on the mux. Supports
+        HTTP Range requests (206 Partial Content) for seeking. The `jfId` value
+        comes from `PlayInfo.stream_url` — clients should treat it as opaque.
+      operationId: getStreamJfId
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: jfId
+          in: path
+          required: true
+          schema: { type: string }
+          description: Jellyfin item UUID (no prefix)
+      responses:
+        '200':
+          description: Full video content
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '206':
+          description: Partial video content (Range request)
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Item not found in Jellyfin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          description: Jellyfin returned an error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /library/{id}:
     get:
       summary: Item detail with playback handoff

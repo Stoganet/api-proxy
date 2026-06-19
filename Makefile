@@ -3,7 +3,7 @@
 GO ?= go
 
 gen:
-	$(GO) tool oapi-codegen -config oapi-codegen.yaml api/openapi.yaml
+	$(GO) tool oapi-codegen -config oapi-codegen.yaml -exclude-operation-ids getStreamJfId api/openapi.yaml
 
 test:
 	$(GO) test -race -count=1 ./...
