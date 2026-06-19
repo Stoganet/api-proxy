@@ -40,7 +40,6 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		{"Runtime", got.Runtime, 136},
 		{"Poster", got.Poster, "https://jf.example.com/Items/jf-abc/Images/Primary"},
 		{"Backdrop", got.Backdrop, "https://jf.example.com/Items/jf-abc/Images/Backdrop/0"},
-		{"Seasons", got.Seasons, 0},
 	}
 	for _, f := range fields {
 		if f.got != f.want {
@@ -48,6 +47,9 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		}
 	}
 
+	if len(got.Seasons) != 0 {
+		t.Errorf("movie Seasons must be empty, got %d", len(got.Seasons))
+	}
 	if len(got.Genres) != 2 || got.Genres[0] != "Action" {
 		t.Errorf("Genres: got %v", got.Genres)
 	}
@@ -65,11 +67,10 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 
 func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 	item := jellyfin.Item{
-		ID:         "jf-xyz",
-		Name:       "Home Video",
-		Type:       jellyfin.ItemTypeSeries,
-		Year:       2020,
-		ChildCount: 3,
+		ID:   "jf-xyz",
+		Name: "Home Video",
+		Type: jellyfin.ItemTypeSeries,
+		Year: 2020,
 	}
 
 	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
@@ -83,8 +84,8 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 	if got.Backdrop != "" {
 		t.Errorf("Backdrop should be empty when no BackdropTags, got %q", got.Backdrop)
 	}
-	if got.Seasons != 3 {
-		t.Errorf("Seasons: got %d, want 3", got.Seasons)
+	if len(got.Seasons) != 0 {
+		t.Errorf("toDetail Seasons must be empty slice, got %d", len(got.Seasons))
 	}
 }
 
@@ -131,5 +132,148 @@ func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		if f.got != f.want {
 			t.Errorf("%s: got %v, want %v", f.name, f.got, f.want)
 		}
+	}
+}
+
+func TestToWatchProgress_NeverWatched_ReturnsNil(t *testing.T) {
+	ud := jellyfin.UserData{PlaybackPositionTicks: 0, Played: false}
+	if got := toWatchProgress(ud); got != nil {
+		t.Errorf("expected nil for unwatched, got %+v", got)
+	}
+}
+
+func TestToWatchProgress_InProgress_ReturnsMSConversion(t *testing.T) {
+	ud := jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000, Played: false}
+	got := toWatchProgress(ud)
+	if got == nil {
+		t.Fatal("expected non-nil")
+	}
+	if got.PositionMS != 412_000 {
+		t.Errorf("PositionMS: got %d, want 412000", got.PositionMS)
+	}
+	if got.Played {
+		t.Error("Played should be false")
+	}
+}
+
+func TestToWatchProgress_Played_ReturnsPlayed(t *testing.T) {
+	ud := jellyfin.UserData{PlaybackPositionTicks: 0, Played: true}
+	got := toWatchProgress(ud)
+	if got == nil {
+		t.Fatal("expected non-nil for played content")
+	}
+	if !got.Played {
+		t.Error("Played should be true")
+	}
+}
+
+func TestToSeason_MapsFieldsCorrectly(t *testing.T) {
+	jfs := jellyfin.Season{
+		ID: "s1", Number: 2, Name: "Season 2", Year: 2009,
+		EpisodeCount: 13, PrimaryImageTag: "tag",
+	}
+	got := toSeason(jfs, "http://jf.example.com")
+	if got.Number != 2 || got.Name != "Season 2" || got.EpisodeCount != 13 {
+		t.Errorf("season mismatch: %+v", got)
+	}
+	if got.Poster != "http://jf.example.com/Items/s1/Images/Primary" {
+		t.Errorf("poster: got %q", got.Poster)
+	}
+}
+
+func TestToSeason_NoImage_EmptyPoster(t *testing.T) {
+	jfs := jellyfin.Season{ID: "s1", Number: 1, Name: "Season 1", PrimaryImageTag: ""}
+	got := toSeason(jfs, "http://jf.example.com")
+	if got.Poster != "" {
+		t.Errorf("expected empty poster, got %q", got.Poster)
+	}
+}
+
+func TestToEpisode_MapsFieldsCorrectly(t *testing.T) {
+	jfe := jellyfin.Episode{
+		ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
+		Overview: "The beginning.", RunTimeTicks: 17_640_000_000,
+		PrimaryImageTag: "tag",
+		UserData:        jellyfin.UserData{PlaybackPositionTicks: 0, Played: false},
+	}
+	got := toEpisode(jfe, "http://jf.example.com", "https://api.stoganet.com")
+	if got.ID != "jf:ep1" {
+		t.Errorf("ID: got %q, want jf:ep1", got.ID)
+	}
+	if got.Number != 1 || got.SeasonNumber != 1 {
+		t.Errorf("numbers: %+v", got)
+	}
+	if got.Runtime != 29 { // 17_640_000_000 / 600_000_000 = 29.4 → 29
+		t.Errorf("runtime: got %d, want 29", got.Runtime)
+	}
+	if got.Thumbnail != "http://jf.example.com/Items/ep1/Images/Primary" {
+		t.Errorf("thumbnail: got %q", got.Thumbnail)
+	}
+	if got.Play == nil || got.Play.StreamURL != "https://api.stoganet.com/stream/ep1" {
+		t.Errorf("play: %+v", got.Play)
+	}
+	if got.Progress != nil {
+		t.Errorf("progress should be nil for unwatched episode")
+	}
+}
+
+func TestToDetail_Movie_HasPlayAndProgress(t *testing.T) {
+	jf := jellyfin.Item{
+		ID: "mov1", Name: "The Matrix", Type: jellyfin.ItemTypeMovie,
+		Year: 1999, Runtime: 81_600_000_000,
+		UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000, Played: false},
+	}
+	d := toDetail(jf, "http://jf.example.com", "https://api.stoganet.com")
+	if d.Play == nil {
+		t.Error("movie must have Play")
+	}
+	if d.Progress == nil || d.Progress.PositionMS != 240_000 {
+		t.Errorf("progress: %+v", d.Progress)
+	}
+	if d.Resume != nil {
+		t.Error("movie must not have Resume")
+	}
+	if len(d.Seasons) != 0 {
+		t.Errorf("movie seasons must be empty slice, got %v", d.Seasons)
+	}
+}
+
+func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
+	jf := jellyfin.Item{
+		ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries,
+	}
+	seasons := []jellyfin.Season{
+		{ID: "s1", Number: 1, Name: "Season 1", Year: 2008, EpisodeCount: 7},
+	}
+	nextUp := &jellyfin.Episode{
+		ID: "ep3", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
+		UserData: jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000, Played: false},
+	}
+	d := toSeriesDetail(jf, seasons, nextUp, "http://jf.example.com", "https://api.stoganet.com")
+	if d.Play != nil {
+		t.Error("series must not have Play")
+	}
+	if d.Progress != nil {
+		t.Error("series must not have Progress")
+	}
+	if len(d.Seasons) != 1 {
+		t.Errorf("seasons: got %d", len(d.Seasons))
+	}
+	if d.Resume == nil {
+		t.Fatal("Resume must not be nil")
+	}
+	if d.Resume.EpisodeID != "jf:ep3" {
+		t.Errorf("Resume.EpisodeID: got %q", d.Resume.EpisodeID)
+	}
+	if d.Resume.Progress.PositionMS != 412_000 {
+		t.Errorf("Resume.Progress.PositionMS: got %d", d.Resume.Progress.PositionMS)
+	}
+}
+
+func TestToSeriesDetail_NoNextUp_NilResume(t *testing.T) {
+	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
+	d := toSeriesDetail(jf, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
+	if d.Resume != nil {
+		t.Errorf("Resume should be nil for unwatched series, got %+v", d.Resume)
 	}
 }
