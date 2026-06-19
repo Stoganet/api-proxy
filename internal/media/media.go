@@ -46,6 +46,7 @@ type Season struct {
 	Name         string
 	Year         int
 	EpisodeCount int
+	Overview     string
 	Poster       string
 }
 

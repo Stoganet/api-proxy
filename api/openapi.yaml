@@ -113,6 +113,7 @@ components:
         year:          { type: integer }
         episode_count: { type: integer }
         poster:        { type: string }
+        overview:      { type: string }
 
     WatchProgress:
       type: object

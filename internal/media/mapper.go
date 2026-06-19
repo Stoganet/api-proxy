@@ -78,6 +78,7 @@ func toSeason(jf jellyfin.Season, jellyfinBaseURL string) Season {
 		Name:         jf.Name,
 		Year:         jf.Year,
 		EpisodeCount: jf.EpisodeCount,
+		Overview:     jf.Overview,
 		Poster:       poster,
 	}
 }

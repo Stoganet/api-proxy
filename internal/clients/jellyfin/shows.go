@@ -14,6 +14,7 @@ type Season struct {
 	Name            string
 	Year            int
 	EpisodeCount    int
+	Overview        string
 	PrimaryImageTag string
 }
 
@@ -165,6 +166,7 @@ type jfSeasonResponse struct {
 	IndexNumber    int               `json:"IndexNumber"`
 	ProductionYear int               `json:"ProductionYear"`
 	ChildCount     int               `json:"ChildCount"`
+	Overview       string            `json:"Overview"`
 	ImageTags      map[string]string `json:"ImageTags"`
 }
 
@@ -175,6 +177,7 @@ func (r *jfSeasonResponse) toSeason() Season {
 		Name:            r.Name,
 		Year:            r.ProductionYear,
 		EpisodeCount:    r.ChildCount,
+		Overview:        r.Overview,
 		PrimaryImageTag: r.ImageTags["Primary"],
 	}
 }

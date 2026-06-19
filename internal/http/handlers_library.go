@@ -147,6 +147,9 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 			EpisodeCount: s.EpisodeCount,
 			Poster:       s.Poster,
 		}
+		if s.Overview != "" {
+			gs.Overview = &s.Overview
+		}
 		if s.Year != 0 {
 			gs.Year = &s.Year
 		}
