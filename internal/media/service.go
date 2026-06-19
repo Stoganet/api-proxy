@@ -15,6 +15,9 @@ var ErrItemNotFound = errors.New("catalog: item not found")
 type JellyfinClient interface {
 	GetItem(ctx context.Context, userID, itemID string) (*jellyfin.Item, error)
 	GetItems(ctx context.Context, userID string, opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error)
+	GetSeasons(ctx context.Context, userID, seriesID string) ([]jellyfin.Season, error)
+	GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]jellyfin.Episode, error)
+	GetNextUp(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
 }
 
 type Service struct {
@@ -32,8 +35,59 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 	if err != nil {
 		return nil, err
 	}
+	if item.Type == jellyfin.ItemTypeSeries {
+		return s.getSeriesDetail(ctx, jfUserID, *item)
+	}
 	d := toDetail(*item, s.baseURL, s.proxyBaseURL)
 	return &d, nil
+}
+
+func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jellyfin.Item) (*Detail, error) {
+	var (
+		seasons    []jellyfin.Season
+		seasonsErr error
+		nextUp     *jellyfin.Episode
+		nextUpErr  error
+	)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		seasons, seasonsErr = s.jf.GetSeasons(ctx, jfUserID, item.ID)
+	}()
+	go func() {
+		defer wg.Done()
+		nextUp, nextUpErr = s.jf.GetNextUp(ctx, jfUserID, item.ID)
+	}()
+	wg.Wait()
+
+	if seasonsErr != nil {
+		return nil, fmt.Errorf("getSeriesDetail: GetSeasons: %w", seasonsErr)
+	}
+	if nextUpErr != nil {
+		return nil, fmt.Errorf("getSeriesDetail: GetNextUp: %w", nextUpErr)
+	}
+	d := toSeriesDetail(item, seasons, nextUp, s.baseURL, s.proxyBaseURL)
+	return &d, nil
+}
+
+func (s *Service) GetEpisodes(ctx context.Context, jfUserID, catalogID string, seasonNumber int) ([]Episode, error) {
+	item, err := s.resolveItem(ctx, jfUserID, catalogID)
+	if err != nil {
+		return nil, err
+	}
+	episodes, err := s.jf.GetEpisodes(ctx, jfUserID, item.ID, seasonNumber)
+	if err != nil {
+		if errors.Is(err, jellyfin.ErrItemNotFound) {
+			return nil, ErrItemNotFound
+		}
+		return nil, fmt.Errorf("GetEpisodes: %w", err)
+	}
+	result := make([]Episode, len(episodes))
+	for i, ep := range episodes {
+		result[i] = toEpisode(ep, s.baseURL, s.proxyBaseURL)
+	}
+	return result, nil
 }
 
 // resolveItem translates a catalog ID to a Jellyfin item.

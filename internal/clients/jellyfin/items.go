@@ -14,6 +14,11 @@ const (
 	ItemTypeSeries ItemType = "Series"
 )
 
+type UserData struct {
+	PlaybackPositionTicks int64
+	Played                bool
+}
+
 type Item struct {
 	ID              string
 	Name            string
@@ -27,6 +32,7 @@ type Item struct {
 	ProviderIDs     map[string]string
 	People          []Person
 	ChildCount      int
+	UserData        UserData
 }
 
 type Person struct {
@@ -170,6 +176,10 @@ type jfItemResponse struct {
 		Name string `json:"Name"`
 		Type string `json:"Type"`
 	} `json:"People"`
+	UserData struct {
+		PlaybackPositionTicks int64 `json:"PlaybackPositionTicks"`
+		Played                bool  `json:"Played"`
+	} `json:"UserData"`
 }
 
 func (r *jfItemResponse) toItem() *Item {
@@ -190,5 +200,9 @@ func (r *jfItemResponse) toItem() *Item {
 		ProviderIDs:     r.ProviderIDs,
 		People:          people,
 		ChildCount:      r.ChildCount,
+		UserData: UserData{
+			PlaybackPositionTicks: r.UserData.PlaybackPositionTicks,
+			Played:                r.UserData.Played,
+		},
 	}
 }

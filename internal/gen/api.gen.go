@@ -128,6 +128,27 @@ type CastMember struct {
 	Role string `json:"role"`
 }
 
+// Episode defines model for Episode.
+type Episode struct {
+	Id       string         `json:"id"`
+	Number   int            `json:"number"`
+	Overview *string        `json:"overview,omitempty"`
+	Play     *PlayInfo      `json:"play,omitempty"`
+	Progress *WatchProgress `json:"progress,omitempty"`
+
+	// Runtime Duration in minutes
+	Runtime      *int       `json:"runtime,omitempty"`
+	SeasonNumber int        `json:"season_number"`
+	State        MediaState `json:"state"`
+	Thumbnail    *string    `json:"thumbnail,omitempty"`
+	Title        string     `json:"title"`
+}
+
+// EpisodeListResponse defines model for EpisodeListResponse.
+type EpisodeListResponse struct {
+	Episodes []Episode `json:"episodes"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error struct {
@@ -155,19 +176,19 @@ type HomeSection struct {
 
 // LibraryDetail defines model for LibraryDetail.
 type LibraryDetail struct {
-	Backdrop *string      `json:"backdrop,omitempty"`
-	Cast     []CastMember `json:"cast"`
-	Genres   []string     `json:"genres"`
-	Id       string       `json:"id"`
-	Overview string       `json:"overview"`
-	Play     *PlayInfo    `json:"play,omitempty"`
-	Poster   string       `json:"poster"`
+	Backdrop *string        `json:"backdrop,omitempty"`
+	Cast     []CastMember   `json:"cast"`
+	Genres   []string       `json:"genres"`
+	Id       string         `json:"id"`
+	Overview string         `json:"overview"`
+	Play     *PlayInfo      `json:"play,omitempty"`
+	Poster   string         `json:"poster"`
+	Progress *WatchProgress `json:"progress,omitempty"`
+	Resume   *ResumeInfo    `json:"resume,omitempty"`
 
 	// Runtime Duration in minutes
-	Runtime int `json:"runtime"`
-
-	// Seasons Number of seasons; 0 for movies
-	Seasons int        `json:"seasons"`
+	Runtime int        `json:"runtime"`
+	Seasons []Season   `json:"seasons"`
 	State   MediaState `json:"state"`
 	Title   string     `json:"title"`
 	Type    MediaType  `json:"type"`
@@ -227,6 +248,27 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// ResumeInfo defines model for ResumeInfo.
+type ResumeInfo struct {
+	EpisodeId     string        `json:"episode_id"`
+	EpisodeNumber int           `json:"episode_number"`
+	Play          PlayInfo      `json:"play"`
+	Progress      WatchProgress `json:"progress"`
+	SeasonNumber  int           `json:"season_number"`
+	Thumbnail     *string       `json:"thumbnail,omitempty"`
+	Title         string        `json:"title"`
+}
+
+// Season defines model for Season.
+type Season struct {
+	EpisodeCount int     `json:"episode_count"`
+	Name         string  `json:"name"`
+	Number       int     `json:"number"`
+	Overview     *string `json:"overview,omitempty"`
+	Poster       string  `json:"poster"`
+	Year         *int    `json:"year,omitempty"`
+}
+
 // TokenPair defines model for TokenPair.
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
@@ -239,6 +281,12 @@ type User struct {
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email"`
 	Id          string `json:"id"`
+}
+
+// WatchProgress defines model for WatchProgress.
+type WatchProgress struct {
+	Played     bool  `json:"played"`
+	PositionMs int64 `json:"position_ms"`
 }
 
 // bearerJWTContextKey is the context key for BearerJWT security scheme
@@ -298,6 +346,9 @@ type ServerInterface interface {
 	// Item detail with playback handoff
 	// (GET /library/{id})
 	GetLibraryId(w http.ResponseWriter, r *http.Request, id string)
+	// Episode list for a season
+	// (GET /library/{id}/seasons/{seasonNumber}/episodes)
+	GetLibraryIdSeasonsSeasonNumberEpisodes(w http.ResponseWriter, r *http.Request, id string, seasonNumber int)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -536,6 +587,47 @@ func (siw *ServerInterfaceWrapper) GetLibraryId(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetLibraryIdSeasonsSeasonNumberEpisodes operation middleware
+func (siw *ServerInterfaceWrapper) GetLibraryIdSeasonsSeasonNumberEpisodes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "seasonNumber" -------------
+	var seasonNumber int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "seasonNumber", r.PathValue("seasonNumber"), &seasonNumber, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "seasonNumber", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerJWTScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLibraryIdSeasonsSeasonNumberEpisodes(w, r, id, seasonNumber)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -666,6 +758,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/home", wrapper.GetHome)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library", wrapper.GetLibrary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/{id}", wrapper.GetLibraryId)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/{id}/seasons/{seasonNumber}/episodes", wrapper.GetLibraryIdSeasonsSeasonNumberEpisodes)
 
 	return m
 }
@@ -1080,6 +1173,71 @@ func (response GetLibraryId503JSONResponse) VisitGetLibraryIdResponse(w http.Res
 	return err
 }
 
+type GetLibraryIdSeasonsSeasonNumberEpisodesRequestObject struct {
+	Id           string `json:"id"`
+	SeasonNumber int    `json:"seasonNumber"`
+}
+
+type GetLibraryIdSeasonsSeasonNumberEpisodesResponseObject interface {
+	VisitGetLibraryIdSeasonsSeasonNumberEpisodesResponse(w http.ResponseWriter) error
+}
+
+type GetLibraryIdSeasonsSeasonNumberEpisodes200JSONResponse EpisodeListResponse
+
+func (response GetLibraryIdSeasonsSeasonNumberEpisodes200JSONResponse) VisitGetLibraryIdSeasonsSeasonNumberEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryIdSeasonsSeasonNumberEpisodes401JSONResponse Error
+
+func (response GetLibraryIdSeasonsSeasonNumberEpisodes401JSONResponse) VisitGetLibraryIdSeasonsSeasonNumberEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryIdSeasonsSeasonNumberEpisodes404JSONResponse Error
+
+func (response GetLibraryIdSeasonsSeasonNumberEpisodes404JSONResponse) VisitGetLibraryIdSeasonsSeasonNumberEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryIdSeasonsSeasonNumberEpisodes503JSONResponse Error
+
+func (response GetLibraryIdSeasonsSeasonNumberEpisodes503JSONResponse) VisitGetLibraryIdSeasonsSeasonNumberEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Username + password login (proxied through Jellyfin AuthenticateByName)
@@ -1112,6 +1270,9 @@ type StrictServerInterface interface {
 	// Item detail with playback handoff
 	// (GET /library/{id})
 	GetLibraryId(ctx context.Context, request GetLibraryIdRequestObject) (GetLibraryIdResponseObject, error)
+	// Episode list for a season
+	// (GET /library/{id}/seasons/{seasonNumber}/episodes)
+	GetLibraryIdSeasonsSeasonNumberEpisodes(ctx context.Context, request GetLibraryIdSeasonsSeasonNumberEpisodesRequestObject) (GetLibraryIdSeasonsSeasonNumberEpisodesResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1415,42 +1576,74 @@ func (sh *strictHandler) GetLibraryId(w http.ResponseWriter, r *http.Request, id
 	}
 }
 
+// GetLibraryIdSeasonsSeasonNumberEpisodes operation middleware
+func (sh *strictHandler) GetLibraryIdSeasonsSeasonNumberEpisodes(w http.ResponseWriter, r *http.Request, id string, seasonNumber int) {
+	var request GetLibraryIdSeasonsSeasonNumberEpisodesRequestObject
+
+	request.Id = id
+	request.SeasonNumber = seasonNumber
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLibraryIdSeasonsSeasonNumberEpisodes(ctx, request.(GetLibraryIdSeasonsSeasonNumberEpisodesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLibraryIdSeasonsSeasonNumberEpisodes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLibraryIdSeasonsSeasonNumberEpisodesResponseObject); ok {
+		if err := validResponse.VisitGetLibraryIdSeasonsSeasonNumberEpisodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"CuFe044GA2jFmU03jWelbvjybvnfAAAA//8=",
+	"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",
+	"/w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

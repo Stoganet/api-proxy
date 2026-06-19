@@ -14,6 +14,12 @@ type fakeJF struct {
 	err            error
 	capturedItemID string
 	capturedOpts   jellyfin.GetItemsOpts
+	getSeasons     []jellyfin.Season
+	getSeasonsErr  error
+	getEpisodes    []jellyfin.Episode
+	getEpisodesErr error
+	getNextUp      *jellyfin.Episode
+	getNextUpErr   error
 }
 
 func (f *fakeJF) GetItem(_ context.Context, _, itemID string) (*jellyfin.Item, error) {
@@ -24,6 +30,18 @@ func (f *fakeJF) GetItem(_ context.Context, _, itemID string) (*jellyfin.Item, e
 func (f *fakeJF) GetItems(_ context.Context, _ string, opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
 	f.capturedOpts = opts
 	return f.items, f.err
+}
+
+func (f *fakeJF) GetSeasons(_ context.Context, _, _ string) ([]jellyfin.Season, error) {
+	return f.getSeasons, f.getSeasonsErr
+}
+
+func (f *fakeJF) GetEpisodes(_ context.Context, _, _ string, _ int) ([]jellyfin.Episode, error) {
+	return f.getEpisodes, f.getEpisodesErr
+}
+
+func (f *fakeJF) GetNextUp(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
+	return f.getNextUp, f.getNextUpErr
 }
 
 func newSvc(jf JellyfinClient) *Service {
@@ -173,6 +191,18 @@ func (f *fakeJFFunc) GetItems(_ context.Context, _ string, opts jellyfin.GetItem
 	return f.fn(opts)
 }
 
+func (f *fakeJFFunc) GetSeasons(_ context.Context, _, _ string) ([]jellyfin.Season, error) {
+	return nil, nil
+}
+
+func (f *fakeJFFunc) GetEpisodes(_ context.Context, _, _ string, _ int) ([]jellyfin.Episode, error) {
+	return nil, nil
+}
+
+func (f *fakeJFFunc) GetNextUp(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
+	return nil, nil
+}
+
 func okSection() *jellyfin.ItemsResult {
 	return &jellyfin.ItemsResult{
 		Items:      []jellyfin.Item{{ID: "jf-1", Type: jellyfin.ItemTypeMovie}},
@@ -250,5 +280,104 @@ func TestService_Home_HasMore_FalseWhenAllReturned(t *testing.T) {
 		if sec.HasMore {
 			t.Errorf("section %q: HasMore should be false when TotalCount == len(Items)", sec.ID)
 		}
+	}
+}
+
+func TestGetItem_Series_ReturnsSeasonsAndResume(t *testing.T) {
+	jf := &fakeJF{
+		item: &jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries},
+		getSeasons: []jellyfin.Season{
+			{ID: "s1", Number: 1, Name: "Season 1", Year: 2008, EpisodeCount: 7},
+		},
+		getNextUp: &jellyfin.Episode{
+			ID: "ep3", Name: "Bit by a Dead Bee",
+			IndexNumber: 3, ParentIndexNumber: 2,
+			UserData: jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000},
+		},
+	}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	d, err := svc.GetItem(context.Background(), "uid", "jf:tv1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d.Play != nil {
+		t.Error("series must not have Play")
+	}
+	if len(d.Seasons) != 1 || d.Seasons[0].Number != 1 {
+		t.Errorf("seasons: %+v", d.Seasons)
+	}
+	if d.Resume == nil || d.Resume.EpisodeID != "jf:ep3" {
+		t.Errorf("resume: %+v", d.Resume)
+	}
+}
+
+func TestGetItem_Movie_HasPlayAndProgress(t *testing.T) {
+	jf := &fakeJF{
+		item: &jellyfin.Item{
+			ID: "mov1", Name: "The Matrix", Type: jellyfin.ItemTypeMovie,
+			UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000},
+		},
+	}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	d, err := svc.GetItem(context.Background(), "uid", "jf:mov1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d.Play == nil {
+		t.Error("movie must have Play")
+	}
+	if d.Progress == nil || d.Progress.PositionMS != 240_000 {
+		t.Errorf("progress: %+v", d.Progress)
+	}
+	if d.Resume != nil {
+		t.Error("movie must not have Resume")
+	}
+}
+
+func TestGetEpisodes_ReturnsMappedEpisodes(t *testing.T) {
+	jf := &fakeJF{
+		item: &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
+		getEpisodes: []jellyfin.Episode{
+			{ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
+				RunTimeTicks: 17_640_000_000},
+		},
+	}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(eps) != 1 || eps[0].ID != "jf:ep1" {
+		t.Errorf("episodes: %+v", eps)
+	}
+	if eps[0].Play == nil || eps[0].Play.StreamURL != "https://api.stoganet.com/stream/ep1" {
+		t.Errorf("play: %+v", eps[0].Play)
+	}
+}
+
+func TestGetEpisodes_JellyfinSeriesNotFound_ReturnsErrItemNotFound(t *testing.T) {
+	jf := &fakeJF{
+		item:           &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
+		getEpisodesErr: jellyfin.ErrItemNotFound,
+	}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	_, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
+	if !errors.Is(err, ErrItemNotFound) {
+		t.Errorf("got %v, want ErrItemNotFound", err)
+	}
+}
+
+func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
+	jf := &fakeJF{
+		item:        &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
+		getEpisodes: []jellyfin.Episode{},
+	}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(eps) != 0 {
+		t.Errorf("expected empty slice, got %d", len(eps))
 	}
 }

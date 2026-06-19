@@ -29,6 +29,7 @@ type libraryService interface {
 	GetItem(ctx context.Context, jfUserID, itemID string) (*media.Detail, error)
 	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
 	Home(ctx context.Context, jfUserID string) (*media.HomeResult, error)
+	GetEpisodes(ctx context.Context, jfUserID, showID string, seasonNumber int) ([]media.Episode, error)
 }
 
 type Server struct {

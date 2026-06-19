@@ -104,6 +104,57 @@ components:
         name: { type: string }
         role: { type: string }
 
+    Season:
+      type: object
+      required: [number, name, episode_count, poster]
+      properties:
+        number:        { type: integer }
+        name:          { type: string }
+        year:          { type: integer }
+        episode_count: { type: integer }
+        poster:        { type: string }
+        overview:      { type: string }
+
+    WatchProgress:
+      type: object
+      required: [position_ms, played]
+      properties:
+        position_ms: { type: integer, format: int64 }
+        played:      { type: boolean }
+
+    ResumeInfo:
+      type: object
+      required: [season_number, episode_number, episode_id, title, play, progress]
+      properties:
+        season_number:  { type: integer }
+        episode_number: { type: integer }
+        episode_id:     { type: string }
+        title:          { type: string }
+        thumbnail:      { type: string, nullable: true }
+        play:           { $ref: '#/components/schemas/PlayInfo' }
+        progress:       { $ref: '#/components/schemas/WatchProgress' }
+
+    Episode:
+      type: object
+      required: [id, number, season_number, title, state]
+      properties:
+        id:            { type: string }
+        number:        { type: integer }
+        season_number: { type: integer }
+        title:         { type: string }
+        overview:      { type: string, nullable: true }
+        runtime:       { type: integer, description: Duration in minutes }
+        thumbnail:     { type: string, nullable: true }
+        state:         { $ref: '#/components/schemas/MediaState' }
+        play:          { $ref: '#/components/schemas/PlayInfo', nullable: true }
+        progress:      { $ref: '#/components/schemas/WatchProgress', nullable: true }
+
+    EpisodeListResponse:
+      type: object
+      required: [episodes]
+      properties:
+        episodes: { type: array, items: { $ref: '#/components/schemas/Episode' } }
+
     LibraryItem:
       type: object
       required: [id, title, year, type, poster, overview, state]
@@ -123,11 +174,13 @@ components:
         - type: object
           required: [genres, runtime, cast, seasons]
           properties:
-            genres:  { type: array, items: { type: string } }
-            runtime: { type: integer, description: Duration in minutes }
-            cast:    { type: array, items: { $ref: '#/components/schemas/CastMember' } }
-            seasons: { type: integer, description: Number of seasons; 0 for movies }
-            play:    { $ref: '#/components/schemas/PlayInfo', nullable: true }
+            genres:   { type: array, items: { type: string } }
+            runtime:  { type: integer, description: Duration in minutes }
+            cast:     { type: array, items: { $ref: '#/components/schemas/CastMember' } }
+            seasons:  { type: array, items: { $ref: '#/components/schemas/Season' } }
+            play:     { $ref: '#/components/schemas/PlayInfo', nullable: true }
+            progress: { $ref: '#/components/schemas/WatchProgress', nullable: true }
+            resume:   { $ref: '#/components/schemas/ResumeInfo', nullable: true }
 
     LibraryListResponse:
       type: object
@@ -302,6 +355,42 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '404':
           description: Item not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Jellyfin unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /library/{id}/seasons/{seasonNumber}/episodes:
+    get:
+      summary: Episode list for a season
+      operationId: getLibraryIdSeasonsSeasonNumberEpisodes
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: seasonNumber
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Episode list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EpisodeListResponse' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Show or season not found
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

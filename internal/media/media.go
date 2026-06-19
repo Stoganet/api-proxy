@@ -28,15 +28,54 @@ type Item struct {
 
 type Detail struct {
 	Item
-	Genres  []string
-	Runtime int // minutes
-	Cast    []CastMember
-	Seasons int // series only; 0 for movies
-	Play    *PlayInfo
+	Genres   []string
+	Runtime  int // minutes
+	Cast     []CastMember
+	Seasons  []Season
+	Play     *PlayInfo
+	Progress *WatchProgress
+	Resume   *ResumeInfo
 }
 
 type PlayInfo struct {
 	StreamURL string
+}
+
+type Season struct {
+	Number       int
+	Name         string
+	Year         int
+	EpisodeCount int
+	Overview     string
+	Poster       string
+}
+
+type WatchProgress struct {
+	PositionMS int64
+	Played     bool
+}
+
+type Episode struct {
+	ID           string
+	Number       int
+	SeasonNumber int
+	Title        string
+	Overview     string
+	Runtime      int // minutes
+	Thumbnail    string
+	State        State
+	Play         *PlayInfo
+	Progress     *WatchProgress
+}
+
+type ResumeInfo struct {
+	SeasonNumber  int
+	EpisodeNumber int
+	EpisodeID     string
+	Title         string
+	Thumbnail     string
+	Play          PlayInfo
+	Progress      WatchProgress
 }
 
 type CastMember struct {
