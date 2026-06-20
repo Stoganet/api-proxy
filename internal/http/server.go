@@ -69,11 +69,11 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL str
 func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
 	// public lists operations that do NOT require a JWT.
 	public := map[string]bool{
-		"getHealthz":                true,
-		"postAuthLogin":             true,
-		"postAuthRefresh":           true,
-		"postAuthQuickConnectStart": true,
-		"postAuthQuickConnectPoll":  true,
+		"GetHealthz":                true,
+		"PostAuthLogin":             true,
+		"PostAuthRefresh":           true,
+		"PostAuthQuickConnectStart": true,
+		"PostAuthQuickConnectPoll":  true,
 	}
 	return func(f gen.StrictHandlerFunc, operationID string) gen.StrictHandlerFunc {
 		if public[operationID] {

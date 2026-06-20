@@ -63,6 +63,38 @@ func newTestServer(t *testing.T, fa *fakeAuth) http.Handler {
 	return gen.Handler(strict)
 }
 
+func newTestServerWithJWT(t *testing.T, fa *fakeAuth) http.Handler {
+	t.Helper()
+	s := &Server{auth: fa}
+	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
+		jwtStrictMiddleware(fa),
+	}, gen.StrictHTTPServerOptions{})
+	return gen.Handler(strict)
+}
+
+func TestPublicEndpoints_NoTokenRequired(t *testing.T) {
+	fa := &fakeAuth{loginOut: testTokenPair, refreshOut: testTokenPair}
+	h := newTestServerWithJWT(t, fa)
+
+	endpoints := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPost, "/auth/login", `{"username":"u","password":"p"}`},
+		{http.MethodPost, "/auth/refresh", `{"refresh_token":"tok"}`},
+		{http.MethodGet, "/healthz", ""},
+	}
+	for _, ep := range endpoints {
+		t.Run(ep.method+" "+ep.path, func(t *testing.T) {
+			w := do(t, h, ep.method, ep.path, ep.body)
+			if w.Code == http.StatusUnauthorized {
+				t.Fatalf("public endpoint %s %s returned 401 — JWT middleware is blocking it", ep.method, ep.path)
+			}
+		})
+	}
+}
+
 func do(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	var buf *bytes.Buffer

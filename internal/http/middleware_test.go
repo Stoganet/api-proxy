@@ -129,7 +129,7 @@ func TestJWTMiddleware_PassesThroughNonProtectedRoutes(t *testing.T) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 		return nil, nil
-	}, "postAuthLogin")
+	}, "PostAuthLogin")
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 	w := httptest.NewRecorder()
