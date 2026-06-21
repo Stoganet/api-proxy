@@ -331,6 +331,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Jellyfin unreachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /stream/{jfId}:
     get:

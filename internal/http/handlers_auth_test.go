@@ -245,6 +245,7 @@ func TestPostAuthQuickConnectPoll(t *testing.T) {
 		{"ok", &fakeAuth{qcPollOut: testTokenPair}, http.StatusOK},
 		{"pending", &fakeAuth{qcPollErr: auth.ErrQuickConnectPending}, http.StatusAccepted},
 		{"expired", &fakeAuth{qcPollErr: auth.ErrQuickConnectExpired}, http.StatusGone},
+		{"backend unavailable", &fakeAuth{qcPollErr: auth.ErrJellyfinUnavailable}, http.StatusServiceUnavailable},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

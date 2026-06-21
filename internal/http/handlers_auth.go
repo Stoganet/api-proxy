@@ -80,7 +80,7 @@ func (s *Server) PostAuthQuickConnectPoll(ctx context.Context, request gen.PostA
 	case errors.Is(err, auth.ErrQuickConnectExpired), errors.Is(err, auth.ErrTokenInvalid):
 		return gen.PostAuthQuickConnectPoll410JSONResponse(apiError(ctx, gen.TokenExpired, "quick connect expired")), nil
 	case errors.Is(err, auth.ErrJellyfinUnavailable):
-		return gen.PostAuthQuickConnectPoll410JSONResponse(apiError(ctx, gen.BackendUnavailable, "jellyfin unavailable")), nil
+		return gen.PostAuthQuickConnectPoll503JSONResponse(apiError(ctx, gen.BackendUnavailable, "jellyfin unavailable")), nil
 	case err != nil:
 		return nil, err
 	}
