@@ -20,20 +20,20 @@ concurrency:
 
 jobs:
   build-and-push:
-    name: build and push image
+    name: build and push
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
       image_digest: ${{ steps.push.outputs.digest }}
       target_sha: ${{ steps.resolve.outputs.sha }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 1
 
-      - name: Resolve target SHA
+      - name: Resolve SHA
         id: resolve
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -47,7 +47,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push
         id: push
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
@@ -58,24 +58,22 @@ jobs:
             ghcr.io/stoganet/api-proxy:latest
 
   trigger-infra-bump:
-    name: trigger infra digest bump
+    name: trigger infra bump
     needs: build-and-push
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Preflight — verify required secrets are set
+      - name: Preflight
         env:
           INFRA_DISPATCH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${INFRA_DISPATCH_TOKEN:-}" ]; then
-            echo "::error::Missing required secret: INFRA_DISPATCH_TOKEN"
-            echo "Needs a fine-grained PAT with contents:write on Stoganet/infra to fire repository_dispatch."
+            echo "::error::INFRA_DISPATCH_TOKEN not set — needs contents:write on Stoganet/infra"
             exit 1
           fi
-          echo "All required secrets are set."
 
-      - name: Fire repository_dispatch at infra
+      - name: Dispatch
         env:
           GH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
           OWNER: ${{ github.repository_owner }}
@@ -83,10 +81,9 @@ jobs:
           IMAGE_DIGEST: ${{ needs.build-and-push.outputs.image_digest }}
         run: |
           set -euo pipefail
-          [ -n "${IMAGE_DIGEST}" ] || { echo "::error::IMAGE_DIGEST is empty — aborting dispatch"; exit 1; }
-          [ -n "${TARGET_SHA}" ]   || { echo "::error::TARGET_SHA is empty — aborting dispatch"; exit 1; }
+          [ -n "${IMAGE_DIGEST}" ] || { echo "::error::IMAGE_DIGEST is empty"; exit 1; }
+          [ -n "${TARGET_SHA}" ]   || { echo "::error::TARGET_SHA is empty"; exit 1; }
           gh api -X POST "repos/${OWNER}/infra/dispatches" \
             -f "event_type=api-proxy-bump" \
             -f "client_payload[sha]=${TARGET_SHA}" \
             -f "client_payload[digest]=${IMAGE_DIGEST}"
-          echo "Dispatched api-proxy-bump to ${OWNER}/infra (sha=${TARGET_SHA})"
