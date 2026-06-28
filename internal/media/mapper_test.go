@@ -249,7 +249,8 @@ func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
 		ID: "ep3", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
 		UserData: jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000, Played: false},
 	}
-	d := toSeriesDetail(jf, seasons, nextUp, "http://jf.example.com", "https://api.stoganet.com")
+	firstEp := &jellyfin.Episode{ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1}
+	d := toSeriesDetail(jf, seasons, nextUp, firstEp, "http://jf.example.com", "https://api.stoganet.com")
 	if d.Play != nil {
 		t.Error("series must not have Play")
 	}
@@ -272,8 +273,41 @@ func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
 
 func TestToSeriesDetail_NoNextUp_NilResume(t *testing.T) {
 	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
-	d := toSeriesDetail(jf, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
+	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
 	if d.Resume != nil {
 		t.Errorf("Resume should be nil for unwatched series, got %+v", d.Resume)
+	}
+}
+
+func TestToSeriesDetail_Start_PopulatedFromFirstEpisode(t *testing.T) {
+	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
+	firstEp := &jellyfin.Episode{
+		ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
+		PrimaryImageTag: "tag1",
+		UserData:        jellyfin.UserData{PlaybackPositionTicks: 9_000_000_000, Played: true},
+	}
+	d := toSeriesDetail(jf, nil, nil, firstEp, "http://jf.example.com", "https://api.stoganet.com")
+	if d.Start == nil {
+		t.Fatal("Start must not be nil when firstEpisode is provided")
+	}
+	if d.Start.EpisodeID != "jf:ep1" {
+		t.Errorf("Start.EpisodeID: got %q", d.Start.EpisodeID)
+	}
+	if d.Start.Play.StreamURL != "https://api.stoganet.com/stream/ep1" {
+		t.Errorf("Start.Play.StreamURL: got %q", d.Start.Play.StreamURL)
+	}
+	if d.Start.Progress.PositionMS != 0 || d.Start.Progress.Played {
+		t.Errorf("Start.Progress must be zeroed, got %+v", d.Start.Progress)
+	}
+	if d.Start.Thumbnail != "http://jf.example.com/Items/ep1/Images/Primary" {
+		t.Errorf("Start.Thumbnail: got %q", d.Start.Thumbnail)
+	}
+}
+
+func TestToSeriesDetail_NoFirstEpisode_NilStart(t *testing.T) {
+	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
+	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
+	if d.Start != nil {
+		t.Errorf("Start should be nil when no firstEpisode, got %+v", d.Start)
 	}
 }

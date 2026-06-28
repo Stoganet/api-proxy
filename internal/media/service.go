@@ -18,6 +18,7 @@ type JellyfinClient interface {
 	GetSeasons(ctx context.Context, userID, seriesID string) ([]jellyfin.Season, error)
 	GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]jellyfin.Episode, error)
 	GetNextUp(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
+	GetFirstEpisode(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
 }
 
 type Service struct {
@@ -44,13 +45,15 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 
 func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jellyfin.Item) (*Detail, error) {
 	var (
-		seasons    []jellyfin.Season
-		seasonsErr error
-		nextUp     *jellyfin.Episode
-		nextUpErr  error
+		seasons      []jellyfin.Season
+		seasonsErr   error
+		nextUp       *jellyfin.Episode
+		nextUpErr    error
+		firstEpisode *jellyfin.Episode
+		firstEpErr   error
 	)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		seasons, seasonsErr = s.jf.GetSeasons(ctx, jfUserID, item.ID)
@@ -58,6 +61,10 @@ func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jel
 	go func() {
 		defer wg.Done()
 		nextUp, nextUpErr = s.jf.GetNextUp(ctx, jfUserID, item.ID)
+	}()
+	go func() {
+		defer wg.Done()
+		firstEpisode, firstEpErr = s.jf.GetFirstEpisode(ctx, jfUserID, item.ID)
 	}()
 	wg.Wait()
 
@@ -67,7 +74,10 @@ func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jel
 	if nextUpErr != nil {
 		return nil, fmt.Errorf("getSeriesDetail: GetNextUp: %w", nextUpErr)
 	}
-	d := toSeriesDetail(item, seasons, nextUp, s.baseURL, s.proxyBaseURL)
+	if firstEpErr != nil {
+		return nil, fmt.Errorf("getSeriesDetail: GetFirstEpisode: %w", firstEpErr)
+	}
+	d := toSeriesDetail(item, seasons, nextUp, firstEpisode, s.baseURL, s.proxyBaseURL)
 	return &d, nil
 }
 

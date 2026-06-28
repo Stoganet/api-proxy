@@ -124,3 +124,53 @@ func TestGetNextUp_NothingToResume_ReturnsNil(t *testing.T) {
 		t.Errorf("expected nil, got %+v", ep)
 	}
 }
+
+func TestGetFirstEpisode_ReturnsEpisode(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("SeasonNumber") != "1" {
+			t.Errorf("SeasonNumber: got %q, want 1", r.URL.Query().Get("SeasonNumber"))
+		}
+		if r.URL.Query().Get("Limit") != "1" {
+			t.Errorf("Limit: got %q, want 1", r.URL.Query().Get("Limit"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]any{
+				{
+					"Id": "ep1", "Name": "Pilot", "IndexNumber": 1,
+					"ParentIndexNumber": 1,
+					"ImageTags":         map[string]string{"Primary": "tag"},
+					"UserData":          map[string]any{"PlaybackPositionTicks": int64(0), "Played": false},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetFirstEpisode(context.Background(), "uid", "series1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep == nil {
+		t.Fatal("expected episode, got nil")
+	}
+	if ep.ID != "ep1" || ep.IndexNumber != 1 || ep.Name != "Pilot" {
+		t.Errorf("episode mismatch: %+v", ep)
+	}
+}
+
+func TestGetFirstEpisode_EmptyResult_ReturnsNil(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetFirstEpisode(context.Background(), "uid", "series1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep != nil {
+		t.Errorf("expected nil, got %+v", ep)
+	}
+}
