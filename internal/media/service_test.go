@@ -141,6 +141,33 @@ func TestService_GetItem_ReturnsDetail(t *testing.T) {
 	}
 }
 
+func TestService_GetItem_Series_WithFirstEpisode_PopulatesStart(t *testing.T) {
+	jf := &fakeJF{
+		item: &jellyfin.Item{
+			ID:   "series-1",
+			Name: "Breaking Bad",
+			Type: jellyfin.ItemTypeSeries,
+		},
+		getFirstEpisode: &jellyfin.Episode{
+			ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
+		},
+	}
+	svc := newSvc(jf)
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "jf:series-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d.Start == nil {
+		t.Fatal("Start must not be nil when firstEpisode returned")
+	}
+	if d.Start.EpisodeID != "jf:ep1" {
+		t.Errorf("Start.EpisodeID: got %q", d.Start.EpisodeID)
+	}
+	if d.Start.Progress.PositionMS != 0 || d.Start.Progress.Played {
+		t.Errorf("Start.Progress must be zeroed, got %+v", d.Start.Progress)
+	}
+}
+
 func TestService_List_ReturnsPaginatedResult(t *testing.T) {
 	jf := &fakeJF{items: &jellyfin.ItemsResult{
 		Items: []jellyfin.Item{

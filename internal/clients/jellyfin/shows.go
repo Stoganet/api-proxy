@@ -77,7 +77,6 @@ func (c *Client) GetSeasons(ctx context.Context, userID, seriesID string) ([]Sea
 
 func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]Episode, error) {
 	q := url.Values{}
-	q.Set("UserId", userID)
 	q.Set("SeasonNumber", fmt.Sprintf("%d", seasonNumber))
 	q.Set("Fields", "Overview,UserData,RunTimeTicks")
 	items, err := c.fetchEpisodes(ctx, userID, seriesID, q)
@@ -93,7 +92,6 @@ func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seaso
 
 func (c *Client) GetFirstEpisode(ctx context.Context, userID, seriesID string) (*Episode, error) {
 	q := url.Values{}
-	q.Set("UserId", userID)
 	q.Set("SeasonNumber", "1")
 	q.Set("Limit", "1")
 	q.Set("Fields", "UserData")
@@ -117,6 +115,7 @@ func (c *Client) fetchEpisodes(ctx context.Context, userID, seriesID string, q u
 	if err != nil {
 		return nil, err
 	}
+	q.Set("UserId", userID)
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("X-Emby-Authorization", authHeader(userID))
 	req.Header.Set("X-Emby-Token", c.apiKey)
