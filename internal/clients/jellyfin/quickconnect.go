@@ -19,8 +19,11 @@ type QuickConnectInitiation struct {
 }
 
 func (c *Client) QuickConnectInitiate(ctx context.Context) (*QuickConnectInitiation, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/QuickConnect/Initiate", nil)
+	raw, err := url.JoinPath(c.baseURL, "QuickConnect", "Initiate")
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, raw, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +48,18 @@ func (c *Client) QuickConnectInitiate(ctx context.Context) (*QuickConnectInitiat
 }
 
 func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*AuthResult, error) {
-	u := c.baseURL + "/QuickConnect/Authenticate?secret=" + url.QueryEscape(secret)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+	raw, err := url.JoinPath(c.baseURL, "QuickConnect", "Authenticate")
+	if err != nil {
+		return nil, err
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	q := u.Query()
+	q.Set("secret", secret)
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}

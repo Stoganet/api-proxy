@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
@@ -51,7 +52,7 @@ func (f *fakeJF) GetFirstEpisode(_ context.Context, _, _ string) (*jellyfin.Epis
 }
 
 func newSvc(jf JellyfinClient) *Service {
-	return NewService(jf, "https://jf.example.com", "https://api.stoganet.com")
+	return NewService(jf, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
 }
 
 func TestService_GetItem_JFPrefix_StripsPrefix(t *testing.T) {
@@ -332,7 +333,7 @@ func TestGetItem_Series_ReturnsSeasonsAndResume(t *testing.T) {
 			UserData: jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000},
 		},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	d, err := svc.GetItem(context.Background(), "uid", "jf:tv1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -355,7 +356,7 @@ func TestGetItem_Movie_HasPlayAndProgress(t *testing.T) {
 			UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000},
 		},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	d, err := svc.GetItem(context.Background(), "uid", "jf:mov1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -379,7 +380,7 @@ func TestGetEpisodes_ReturnsMappedEpisodes(t *testing.T) {
 				RunTimeTicks: 17_640_000_000},
 		},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -397,7 +398,7 @@ func TestGetEpisodes_JellyfinSeriesNotFound_ReturnsErrItemNotFound(t *testing.T)
 		item:           &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
 		getEpisodesErr: jellyfin.ErrItemNotFound,
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	_, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Errorf("got %v, want ErrItemNotFound", err)
@@ -409,7 +410,7 @@ func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
 		item:        &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
 		getEpisodes: []jellyfin.Episode{},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com")
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

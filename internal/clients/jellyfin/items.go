@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 type ItemType string
@@ -65,8 +66,11 @@ type GetItemsOpts struct {
 }
 
 func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, error) {
-	url := fmt.Sprintf("%s/Users/%s/Items/%s", c.baseURL, userID, itemID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	raw, err := url.JoinPath(c.baseURL, "Users", userID, "Items", itemID)
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin GetItem: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -86,16 +90,19 @@ func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, err
 		return nil, fmt.Errorf("jellyfin GetItem: unexpected status %d", resp.StatusCode)
 	}
 
-	var raw jfItemResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+	var decoded jfItemResponse
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, fmt.Errorf("jellyfin GetItem: decode: %w", err)
 	}
-	return raw.toItem(), nil
+	return decoded.toItem(), nil
 }
 
 func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts) (*ItemsResult, error) {
-	url := fmt.Sprintf("%s/Users/%s/Items", c.baseURL, userID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	raw, err := url.JoinPath(c.baseURL, "Users", userID, "Items")
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin GetItems: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -140,23 +147,23 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 		return nil, fmt.Errorf("jellyfin GetItems: unexpected status %d", resp.StatusCode)
 	}
 
-	var raw struct {
+	var decoded struct {
 		Items            []jfItemResponse `json:"Items"`
 		TotalRecordCount int              `json:"TotalRecordCount"`
 		StartIndex       int              `json:"StartIndex"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, fmt.Errorf("jellyfin GetItems: decode: %w", err)
 	}
 
-	items := make([]Item, len(raw.Items))
-	for i, r := range raw.Items {
+	items := make([]Item, len(decoded.Items))
+	for i, r := range decoded.Items {
 		items[i] = *r.toItem()
 	}
 	return &ItemsResult{
 		Items:      items,
-		TotalCount: raw.TotalRecordCount,
-		StartIndex: raw.StartIndex,
+		TotalCount: decoded.TotalRecordCount,
+		StartIndex: decoded.StartIndex,
 	}, nil
 }
 
