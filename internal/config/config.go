@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 )
 
@@ -52,6 +53,13 @@ func Load(override envMap) (*Config, error) {
 		return nil, errors.New("JWT_SIGNING_KEY must be at least 32 bytes")
 	}
 
+	if err := validateURL("JELLYFIN_URL", get("JELLYFIN_URL")); err != nil {
+		return nil, err
+	}
+	if err := validateURL("PROXY_BASE_URL", get("PROXY_BASE_URL")); err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		JellyfinURL:    get("JELLYFIN_URL"),
 		JellyfinAPIKey: get("JELLYFIN_API_KEY"),
@@ -60,6 +68,14 @@ func Load(override envMap) (*Config, error) {
 		ListenAddr:     get("LISTEN_ADDR"),
 		ProxyBaseURL:   get("PROXY_BASE_URL"),
 	}, nil
+}
+
+func validateURL(name, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("%s must be an absolute URL, got %q", name, raw)
+	}
+	return nil
 }
 
 // LoadFromEnv reads the real process environment.

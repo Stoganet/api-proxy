@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 type AuthResult struct {
@@ -26,8 +27,11 @@ func IsUpstreamUnavailable(err error) bool { return errors.Is(err, ErrUpstreamUn
 
 func (c *Client) AuthenticateByName(ctx context.Context, username, password string) (*AuthResult, error) {
 	body, _ := json.Marshal(map[string]string{"Username": username, "Pw": password})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/Users/AuthenticateByName", bytes.NewReader(body))
+	raw, err := url.JoinPath(c.baseURL, "Users", "AuthenticateByName")
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, raw, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

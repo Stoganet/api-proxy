@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -25,10 +26,11 @@ type Service struct {
 	jf           JellyfinClient
 	baseURL      string
 	proxyBaseURL string
+	logger       *slog.Logger
 }
 
-func NewService(jf JellyfinClient, jellyfinBaseURL, proxyBaseURL string) *Service {
-	return &Service{jf: jf, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL}
+func NewService(jf JellyfinClient, jellyfinBaseURL, proxyBaseURL string, logger *slog.Logger) *Service {
+	return &Service{jf: jf, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL, logger: logger}
 }
 
 func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Detail, error) {
@@ -185,10 +187,12 @@ func (s *Service) Home(ctx context.Context, jfUserID string) (*HomeResult, error
 	wg.Wait()
 
 	sections := make([]HomeSection, 0, len(homeSections))
-	for _, r := range results {
-		if r.err == nil {
-			sections = append(sections, r.section)
+	for i, r := range results {
+		if r.err != nil {
+			s.logger.Warn("home: section failed", "section", homeSections[i].id, "err", r.err)
+			continue
 		}
+		sections = append(sections, r.section)
 	}
 	if len(sections) == 0 && len(homeSections) > 0 {
 		return nil, fmt.Errorf("home: all sections failed")

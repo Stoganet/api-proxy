@@ -2,9 +2,18 @@ package media
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 )
+
+func joinURL(base string, parts ...string) string {
+	u, err := url.JoinPath(base, parts...)
+	if err != nil {
+		return ""
+	}
+	return u
+}
 
 const (
 	ticksPerMinute = 600_000_000
@@ -17,7 +26,7 @@ func toItem(jf jellyfin.Item, baseURL string) Item {
 		Title:    jf.Name,
 		Year:     jf.Year,
 		Type:     itemType(jf.Type),
-		Poster:   fmt.Sprintf("%s/Items/%s/Images/Primary", baseURL, jf.ID),
+		Poster:   joinURL(baseURL, "Items", jf.ID, "Images", "Primary"),
 		Backdrop: backdrop(jf, baseURL),
 		Overview: jf.Overview,
 		State:    StatePlayable,
@@ -39,7 +48,7 @@ func toDetail(jf jellyfin.Item, jellyfinBaseURL, proxyBaseURL string) Detail {
 		Runtime:  runtime,
 		Cast:     cast,
 		Seasons:  []Season{},
-		Play:     &PlayInfo{StreamURL: proxyBaseURL + "/stream/" + jf.ID},
+		Play:     &PlayInfo{StreamURL: joinURL(proxyBaseURL, "stream", jf.ID)},
 		Progress: toWatchProgress(jf.UserData),
 	}
 }
@@ -78,7 +87,7 @@ func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jelly
 func toSeason(jf jellyfin.Season, jellyfinBaseURL string) Season {
 	poster := ""
 	if jf.PrimaryImageTag != "" {
-		poster = fmt.Sprintf("%s/Items/%s/Images/Primary", jellyfinBaseURL, jf.ID)
+		poster = joinURL(jellyfinBaseURL, "Items", jf.ID, "Images", "Primary")
 	}
 	return Season{
 		Number:       jf.Number,
@@ -97,7 +106,7 @@ func toEpisode(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Episod
 	}
 	thumbnail := ""
 	if jf.PrimaryImageTag != "" {
-		thumbnail = fmt.Sprintf("%s/Items/%s/Images/Primary", jellyfinBaseURL, jf.ID)
+		thumbnail = joinURL(jellyfinBaseURL, "Items", jf.ID, "Images", "Primary")
 	}
 	return Episode{
 		ID:           "jf:" + jf.ID,
@@ -108,7 +117,7 @@ func toEpisode(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Episod
 		Runtime:      runtime,
 		Thumbnail:    thumbnail,
 		State:        StatePlayable,
-		Play:         &PlayInfo{StreamURL: proxyBaseURL + "/stream/" + jf.ID},
+		Play:         &PlayInfo{StreamURL: joinURL(proxyBaseURL, "stream", jf.ID)},
 		Progress:     toWatchProgress(jf.UserData),
 	}
 }
@@ -126,7 +135,7 @@ func toWatchProgress(ud jellyfin.UserData) *WatchProgress {
 func toResumeInfo(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) ResumeInfo {
 	thumbnail := ""
 	if jf.PrimaryImageTag != "" {
-		thumbnail = fmt.Sprintf("%s/Items/%s/Images/Primary", jellyfinBaseURL, jf.ID)
+		thumbnail = joinURL(jellyfinBaseURL, "Items", jf.ID, "Images", "Primary")
 	}
 	progress := toWatchProgress(jf.UserData)
 	var wp WatchProgress
@@ -139,7 +148,7 @@ func toResumeInfo(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Res
 		EpisodeID:     "jf:" + jf.ID,
 		Title:         jf.Name,
 		Thumbnail:     thumbnail,
-		Play:          PlayInfo{StreamURL: proxyBaseURL + "/stream/" + jf.ID},
+		Play:          PlayInfo{StreamURL: joinURL(proxyBaseURL, "stream", jf.ID)},
 		Progress:      wp,
 	}
 }
@@ -162,5 +171,5 @@ func backdrop(jf jellyfin.Item, baseURL string) string {
 	if len(jf.BackdropTags) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%s/Items/%s/Images/Backdrop/0", baseURL, jf.ID)
+	return joinURL(baseURL, "Items", jf.ID, "Images", "Backdrop", "0")
 }
