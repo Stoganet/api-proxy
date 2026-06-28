@@ -9,17 +9,19 @@ import (
 )
 
 type fakeJF struct {
-	item           *jellyfin.Item
-	items          *jellyfin.ItemsResult
-	err            error
-	capturedItemID string
-	capturedOpts   jellyfin.GetItemsOpts
-	getSeasons     []jellyfin.Season
-	getSeasonsErr  error
-	getEpisodes    []jellyfin.Episode
-	getEpisodesErr error
-	getNextUp      *jellyfin.Episode
-	getNextUpErr   error
+	item               *jellyfin.Item
+	items              *jellyfin.ItemsResult
+	err                error
+	capturedItemID     string
+	capturedOpts       jellyfin.GetItemsOpts
+	getSeasons         []jellyfin.Season
+	getSeasonsErr      error
+	getEpisodes        []jellyfin.Episode
+	getEpisodesErr     error
+	getNextUp          *jellyfin.Episode
+	getNextUpErr       error
+	getFirstEpisode    *jellyfin.Episode
+	getFirstEpisodeErr error
 }
 
 func (f *fakeJF) GetItem(_ context.Context, _, itemID string) (*jellyfin.Item, error) {
@@ -42,6 +44,10 @@ func (f *fakeJF) GetEpisodes(_ context.Context, _, _ string, _ int) ([]jellyfin.
 
 func (f *fakeJF) GetNextUp(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
 	return f.getNextUp, f.getNextUpErr
+}
+
+func (f *fakeJF) GetFirstEpisode(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
+	return f.getFirstEpisode, f.getFirstEpisodeErr
 }
 
 func newSvc(jf JellyfinClient) *Service {
@@ -200,6 +206,10 @@ func (f *fakeJFFunc) GetEpisodes(_ context.Context, _, _ string, _ int) ([]jelly
 }
 
 func (f *fakeJFFunc) GetNextUp(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
+	return nil, nil
+}
+
+func (f *fakeJFFunc) GetFirstEpisode(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
 	return nil, nil
 }
 

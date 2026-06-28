@@ -256,6 +256,46 @@ func TestGetLibraryId_SeriesDetail_HasSeasonsAndResume(t *testing.T) {
 	}
 }
 
+func TestGetLibraryId_SeriesDetail_HasStart(t *testing.T) {
+	fc := &fakeLibrary{detail: &media.Detail{
+		Item: media.Item{
+			ID: "tmdb:tv:1396", Title: "Breaking Bad",
+			Year: 2008, Type: media.TypeTV, State: media.StatePlayable,
+		},
+		Genres:  []string{"Drama"},
+		Seasons: []media.Season{},
+		Start: &media.ResumeInfo{
+			SeasonNumber: 1, EpisodeNumber: 1, EpisodeID: "jf:ep1",
+			Title:    "Pilot",
+			Play:     media.PlayInfo{StreamURL: "https://api.stoganet.com/stream/ep1"},
+			Progress: media.WatchProgress{PositionMS: 0, Played: false},
+		},
+	}}
+
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/tmdb:tv:1396")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d. body: %s", w.Code, w.Body.String())
+	}
+	var resp gen.LibraryDetail
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Start == nil {
+		t.Fatal("Start must not be nil")
+	}
+	if resp.Start.EpisodeId != "jf:ep1" {
+		t.Errorf("Start.EpisodeId: got %q", resp.Start.EpisodeId)
+	}
+	if resp.Start.Play.StreamUrl != "https://api.stoganet.com/stream/ep1" {
+		t.Errorf("Start.Play.StreamUrl: got %q", resp.Start.Play.StreamUrl)
+	}
+	if resp.Start.Progress.PositionMs != 0 || resp.Start.Progress.Played {
+		t.Errorf("Start.Progress must be zero, got %+v", resp.Start.Progress)
+	}
+}
+
 func TestGetLibraryId_MovieDetail_HasPlayAndProgress(t *testing.T) {
 	fc := &fakeLibrary{detail: &media.Detail{
 		Item: media.Item{

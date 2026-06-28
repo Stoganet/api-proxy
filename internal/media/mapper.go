@@ -44,7 +44,7 @@ func toDetail(jf jellyfin.Item, jellyfinBaseURL, proxyBaseURL string) Detail {
 	}
 }
 
-func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Detail {
+func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
@@ -58,6 +58,12 @@ func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jelly
 		r := toResumeInfo(*nextUp, jellyfinBaseURL, proxyBaseURL)
 		resume = &r
 	}
+	var start *ResumeInfo
+	if firstEpisode != nil {
+		s := toResumeInfo(*firstEpisode, jellyfinBaseURL, proxyBaseURL)
+		s.Progress = WatchProgress{}
+		start = &s
+	}
 	return Detail{
 		Item:    toItem(jf, jellyfinBaseURL),
 		Genres:  jf.Genres,
@@ -65,6 +71,7 @@ func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jelly
 		Cast:    cast,
 		Seasons: seasons,
 		Resume:  resume,
+		Start:   start,
 	}
 }
 

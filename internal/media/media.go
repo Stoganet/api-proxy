@@ -35,6 +35,7 @@ type Detail struct {
 	Play     *PlayInfo
 	Progress *WatchProgress
 	Resume   *ResumeInfo
+	Start    *ResumeInfo
 }
 
 type PlayInfo struct {

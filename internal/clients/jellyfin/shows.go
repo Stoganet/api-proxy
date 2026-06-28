@@ -76,25 +76,54 @@ func (c *Client) GetSeasons(ctx context.Context, userID, seriesID string) ([]Sea
 }
 
 func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]Episode, error) {
-	raw, err := url.JoinPath(c.baseURL, "Shows", seriesID, "Episodes")
+	q := url.Values{}
+	q.Set("UserId", userID)
+	q.Set("SeasonNumber", fmt.Sprintf("%d", seasonNumber))
+	q.Set("Fields", "Overview,UserData,RunTimeTicks")
+	items, err := c.fetchEpisodes(ctx, userID, seriesID, q)
 	if err != nil {
 		return nil, fmt.Errorf("jellyfin GetEpisodes: %w", err)
+	}
+	episodes := make([]Episode, len(items))
+	for i, e := range items {
+		episodes[i] = e.toEpisode()
+	}
+	return episodes, nil
+}
+
+func (c *Client) GetFirstEpisode(ctx context.Context, userID, seriesID string) (*Episode, error) {
+	q := url.Values{}
+	q.Set("UserId", userID)
+	q.Set("SeasonNumber", "1")
+	q.Set("Limit", "1")
+	q.Set("Fields", "UserData")
+	items, err := c.fetchEpisodes(ctx, userID, seriesID, q)
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin GetFirstEpisode: %w", err)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	ep := items[0].toEpisode()
+	return &ep, nil
+}
+
+func (c *Client) fetchEpisodes(ctx context.Context, userID, seriesID string, q url.Values) ([]jfEpisodeResponse, error) {
+	raw, err := url.JoinPath(c.baseURL, "Shows", seriesID, "Episodes")
+	if err != nil {
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return nil, err
 	}
-	q := req.URL.Query()
-	q.Set("UserId", userID)
-	q.Set("SeasonNumber", fmt.Sprintf("%d", seasonNumber))
-	q.Set("Fields", "Overview,UserData,RunTimeTicks")
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("X-Emby-Authorization", authHeader(userID))
 	req.Header.Set("X-Emby-Token", c.apiKey)
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("jellyfin GetEpisodes: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -102,21 +131,16 @@ func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seaso
 		return nil, ErrItemNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("jellyfin GetEpisodes: unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
 	var body struct {
 		Items []jfEpisodeResponse `json:"Items"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("jellyfin GetEpisodes: decode: %w", err)
+		return nil, fmt.Errorf("decode: %w", err)
 	}
-
-	episodes := make([]Episode, len(body.Items))
-	for i, e := range body.Items {
-		episodes[i] = e.toEpisode()
-	}
-	return episodes, nil
+	return body.Items, nil
 }
 
 func (c *Client) GetNextUp(ctx context.Context, userID, seriesID string) (*Episode, error) {

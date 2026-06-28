@@ -181,6 +181,7 @@ components:
             play:     { $ref: '#/components/schemas/PlayInfo', nullable: true }
             progress: { $ref: '#/components/schemas/WatchProgress', nullable: true }
             resume:   { $ref: '#/components/schemas/ResumeInfo', nullable: true }
+            start:    { $ref: '#/components/schemas/ResumeInfo', nullable: true }
 
     LibraryListResponse:
       type: object
