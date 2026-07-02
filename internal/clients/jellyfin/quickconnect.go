@@ -73,7 +73,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-	case http.StatusUnauthorized:
+	case http.StatusBadRequest:
 		return nil, ErrQuickConnectPending
 	default:
 		return nil, fmt.Errorf("%w: status %d", ErrUpstreamUnavailable, resp.StatusCode)

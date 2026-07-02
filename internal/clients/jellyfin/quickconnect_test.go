@@ -56,7 +56,7 @@ func TestQuickConnectAuthenticate_Approved(t *testing.T) {
 
 func TestQuickConnectAuthenticate_NotYetApproved(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "", http.StatusUnauthorized)
+		http.Error(w, "", http.StatusBadRequest)
 	}))
 	defer s.Close()
 	c := New(s.URL, "")

@@ -84,7 +84,7 @@ func TestAdapter_QuickConnectInitiate_TranslatesUpstreamUnavailable(t *testing.T
 func TestAdapter_QuickConnectAuthenticate_TranslatesPending(t *testing.T) {
 	a := newAdapterServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/QuickConnect/Authenticate" {
-			http.Error(w, "", http.StatusUnauthorized)
+			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 		http.NotFound(w, r)
