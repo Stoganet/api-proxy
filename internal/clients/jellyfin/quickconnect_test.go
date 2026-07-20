@@ -33,14 +33,17 @@ func TestQuickConnectInitiate(t *testing.T) {
 
 func TestQuickConnectAuthenticate_Approved(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/QuickConnect/Authenticate" {
+		switch r.URL.Path {
+		case "/QuickConnect/Connect":
+			_ = json.NewEncoder(w).Encode(map[string]any{"Authenticated": true})
+		case "/Users/AuthenticateWithQuickConnect":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"AccessToken": "tok-qc",
+				"User":        map[string]any{"Id": "jf-user-1", "Name": "alice"},
+			})
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"AccessToken": "tok-qc",
-			"User":        map[string]any{"Id": "jf-user-1", "Name": "alice"},
-		})
 	}))
 	defer s.Close()
 
@@ -55,8 +58,12 @@ func TestQuickConnectAuthenticate_Approved(t *testing.T) {
 }
 
 func TestQuickConnectAuthenticate_NotYetApproved(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "", http.StatusBadRequest)
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/QuickConnect/Connect" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"Authenticated": false})
+			return
+		}
+		http.NotFound(w, r)
 	}))
 	defer s.Close()
 	c := New(s.URL, "")

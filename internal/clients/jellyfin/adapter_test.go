@@ -83,8 +83,8 @@ func TestAdapter_QuickConnectInitiate_TranslatesUpstreamUnavailable(t *testing.T
 
 func TestAdapter_QuickConnectAuthenticate_TranslatesPending(t *testing.T) {
 	a := newAdapterServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/QuickConnect/Authenticate" {
-			http.Error(w, "", http.StatusBadRequest)
+		if r.URL.Path == "/QuickConnect/Connect" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"Authenticated": false})
 			return
 		}
 		http.NotFound(w, r)
@@ -97,14 +97,17 @@ func TestAdapter_QuickConnectAuthenticate_TranslatesPending(t *testing.T) {
 
 func TestAdapter_QuickConnectAuthenticate_TranslatesResult(t *testing.T) {
 	a := newAdapterServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/QuickConnect/Authenticate" {
+		switch r.URL.Path {
+		case "/QuickConnect/Connect":
+			_ = json.NewEncoder(w).Encode(map[string]any{"Authenticated": true})
+		case "/Users/AuthenticateWithQuickConnect":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"AccessToken": "tok-qc",
 				"User":        map[string]any{"Id": "jf-2", "Name": "bob"},
 			})
-			return
+		default:
+			http.NotFound(w, r)
 		}
-		http.NotFound(w, r)
 	})
 	res, err := a.QuickConnectAuthenticate(context.Background(), "secret")
 	if err != nil {
