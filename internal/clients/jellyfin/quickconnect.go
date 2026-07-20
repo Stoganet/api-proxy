@@ -1,6 +1,7 @@
 package jellyfin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -48,18 +49,19 @@ func (c *Client) QuickConnectInitiate(ctx context.Context) (*QuickConnectInitiat
 }
 
 func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*AuthResult, error) {
-	raw, err := url.JoinPath(c.baseURL, "QuickConnect", "Authenticate")
+	connectRaw, err := url.JoinPath(c.baseURL, "QuickConnect", "Connect")
 	if err != nil {
 		return nil, err
 	}
-	u, err := url.Parse(raw)
+	connectURL, err := url.Parse(connectRaw)
 	if err != nil {
 		return nil, err
 	}
-	q := u.Query()
+	q := connectURL.Query()
 	q.Set("secret", secret)
-	u.RawQuery = q.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
+	connectURL.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, connectURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -71,12 +73,44 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusBadRequest:
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: Connect status %d", ErrUpstreamUnavailable, resp.StatusCode)
+	}
+
+	var state struct {
+		Authenticated bool `json:"Authenticated"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&state); err != nil {
+		return nil, fmt.Errorf("%w: decode Connect: %v", ErrUpstreamUnavailable, err)
+	}
+	if !state.Authenticated {
 		return nil, ErrQuickConnectPending
-	default:
-		return nil, fmt.Errorf("%w: status %d", ErrUpstreamUnavailable, resp.StatusCode)
+	}
+
+	authRaw, err := url.JoinPath(c.baseURL, "Users", "AuthenticateWithQuickConnect")
+	if err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(map[string]string{"Secret": secret})
+	if err != nil {
+		return nil, err
+	}
+
+	req2, err := http.NewRequestWithContext(ctx, http.MethodPost, authRaw, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("X-Emby-Authorization", authHeader("api-proxy-qc"))
+
+	resp2, err := c.hc.Do(req2)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: AuthenticateWithQuickConnect status %d", ErrUpstreamUnavailable, resp2.StatusCode)
 	}
 
 	var parsed struct {
@@ -86,8 +120,8 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 			Name string `json:"Name"`
 		} `json:"User"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("%w: decode: %v", ErrUpstreamUnavailable, err)
+	if err := json.NewDecoder(resp2.Body).Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("%w: decode auth: %v", ErrUpstreamUnavailable, err)
 	}
 	return &AuthResult{
 		AccessToken: parsed.AccessToken,
