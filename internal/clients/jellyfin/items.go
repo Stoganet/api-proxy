@@ -56,13 +56,18 @@ const (
 	SortByRandom          = "Random"
 )
 
+const (
+	FieldsDetail          = "Genres,People,ProviderIds,Overview,ChildCount"
+	FieldsProviderIDsOnly = "ProviderIds"
+)
+
 type GetItemsOpts struct {
-	Type       ItemType // ItemTypeMovie, ItemTypeSeries, or zero value = both
+	Type       ItemType
 	Limit      int
 	StartIndex int
-	ProviderID string // e.g. "Tmdb.603"; sets AnyProviderIdEquals when non-empty
 	SortBy     string
 	SortDesc   bool
+	Fields     string
 }
 
 func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, error) {
@@ -98,7 +103,13 @@ func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, err
 }
 
 func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts) (*ItemsResult, error) {
-	raw, err := url.JoinPath(c.baseURL, "Users", userID, "Items")
+	var raw string
+	var err error
+	if userID != "" {
+		raw, err = url.JoinPath(c.baseURL, "Users", userID, "Items")
+	} else {
+		raw, err = url.JoinPath(c.baseURL, "Items")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("jellyfin GetItems: %w", err)
 	}
@@ -107,9 +118,13 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 		return nil, err
 	}
 
+	fields := opts.Fields
+	if fields == "" {
+		fields = FieldsDetail
+	}
 	q := req.URL.Query()
 	q.Set("Recursive", "true")
-	q.Set("Fields", "Genres,People,ProviderIds,Overview,ChildCount")
+	q.Set("Fields", fields)
 	if opts.Type != "" {
 		q.Set("IncludeItemTypes", string(opts.Type))
 	} else {
@@ -120,9 +135,6 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 	}
 	if opts.StartIndex > 0 {
 		q.Set("StartIndex", fmt.Sprintf("%d", opts.StartIndex))
-	}
-	if opts.ProviderID != "" {
-		q.Set("AnyProviderIdEquals", opts.ProviderID)
 	}
 	if opts.SortBy != "" {
 		q.Set("SortBy", opts.SortBy)

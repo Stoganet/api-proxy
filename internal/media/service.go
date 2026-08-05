@@ -7,11 +7,18 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 )
 
 var ErrItemNotFound = errors.New("catalog: item not found")
+
+const (
+	tmdbIndexRefreshInterval = 5 * time.Minute
+	tmdbIndexPageSize        = 200
+)
 
 type JellyfinClient interface {
 	GetItem(ctx context.Context, userID, itemID string) (*jellyfin.Item, error)
@@ -27,10 +34,69 @@ type Service struct {
 	baseURL      string
 	proxyBaseURL string
 	logger       *slog.Logger
+	tmdbIndex    atomic.Pointer[map[string]string]
 }
 
 func NewService(jf JellyfinClient, jellyfinBaseURL, proxyBaseURL string, logger *slog.Logger) *Service {
 	return &Service{jf: jf, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL, logger: logger}
+}
+
+func (s *Service) RefreshTmdbIndex(ctx context.Context) error {
+	return s.refreshTmdbIndex(ctx, tmdbIndexPageSize)
+}
+
+func (s *Service) refreshTmdbIndex(ctx context.Context, pageSize int) error {
+	index := make(map[string]string)
+
+	for _, t := range []struct {
+		jfType   jellyfin.ItemType
+		catalogT Type
+	}{
+		{jellyfin.ItemTypeMovie, TypeMovie},
+		{jellyfin.ItemTypeSeries, TypeTV},
+	} {
+		startIndex := 0
+		for {
+			result, err := s.jf.GetItems(ctx, "", jellyfin.GetItemsOpts{
+				Type:       t.jfType,
+				Fields:     jellyfin.FieldsProviderIDsOnly,
+				Limit:      pageSize,
+				StartIndex: startIndex,
+			})
+			if err != nil {
+				return fmt.Errorf("RefreshTmdbIndex: %w", err)
+			}
+			for i := range result.Items {
+				tmdbID := result.Items[i].ProviderIDs["Tmdb"]
+				if tmdbID == "" {
+					continue
+				}
+				index[string(t.catalogT)+":"+tmdbID] = result.Items[i].ID
+			}
+			startIndex += len(result.Items)
+			if len(result.Items) == 0 || startIndex >= result.TotalCount {
+				break
+			}
+		}
+	}
+
+	s.tmdbIndex.Store(&index)
+	return nil
+}
+
+func (s *Service) StartTmdbIndexRefresher(ctx context.Context) {
+	ticker := time.NewTicker(tmdbIndexRefreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.RefreshTmdbIndex(ctx); err != nil {
+				s.logger.Warn("tmdb index refresh failed", "err", err)
+			}
+		}
+	}
 }
 
 func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Detail, error) {
@@ -102,11 +168,6 @@ func (s *Service) GetEpisodes(ctx context.Context, jfUserID, catalogID string, s
 	return result, nil
 }
 
-// resolveItem translates a catalog ID to a Jellyfin item.
-//
-// Catalog IDs have two forms:
-//   - "jf:{jellyfinUUID}"      → direct Jellyfin lookup after stripping prefix
-//   - "tmdb:{type}:{tmdbID}"   → provider-ID search via AnyProviderIdEquals
 func (s *Service) resolveItem(ctx context.Context, jfUserID, catalogID string) (*jellyfin.Item, error) {
 	if jfID, ok := strings.CutPrefix(catalogID, "jf:"); ok {
 		item, err := s.jf.GetItem(ctx, jfUserID, jfID)
@@ -124,18 +185,29 @@ func (s *Service) resolveItem(ctx context.Context, jfUserID, catalogID string) (
 		if len(parts) != 3 {
 			return nil, ErrItemNotFound
 		}
-		providerID := "Tmdb." + parts[2]
-		result, err := s.jf.GetItems(ctx, jfUserID, jellyfin.GetItemsOpts{
-			ProviderID: providerID,
-			Limit:      1,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("catalog resolveItem: %w", err)
-		}
-		if len(result.Items) == 0 {
+		switch Type(parts[1]) {
+		case TypeMovie, TypeTV:
+		default:
 			return nil, ErrItemNotFound
 		}
-		return &result.Items[0], nil
+
+		index := s.tmdbIndex.Load()
+		if index == nil {
+			return nil, fmt.Errorf("catalog resolveItem: tmdb index not built yet")
+		}
+		jfID, ok := (*index)[parts[1]+":"+parts[2]]
+		if !ok {
+			return nil, ErrItemNotFound
+		}
+
+		item, err := s.jf.GetItem(ctx, jfUserID, jfID)
+		if err != nil {
+			if errors.Is(err, jellyfin.ErrItemNotFound) {
+				return nil, ErrItemNotFound
+			}
+			return nil, fmt.Errorf("catalog resolveItem: %w", err)
+		}
+		return item, nil
 	}
 
 	return nil, ErrItemNotFound
