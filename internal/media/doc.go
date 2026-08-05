@@ -11,8 +11,8 @@
 //
 // The proxy assigns its own IDs — Jellyfin UUIDs are never exposed to clients.
 //
-//   - "tmdb:movie:603" / "tmdb:tv:1396" — resolved via Jellyfin's
-//     AnyProviderIdEquals filter
+//   - "tmdb:movie:603" / "tmdb:tv:1396" — resolved via an in-memory
+//     TMDB-ID → Jellyfin-UUID index, refreshed on a timer
 //   - "jf:<uuid>" — direct Jellyfin lookup after stripping the prefix
 //
 // [Service.resolveItem] handles translation. Episode IDs are always "jf:<uuid>"

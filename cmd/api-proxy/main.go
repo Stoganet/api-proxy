@@ -43,10 +43,12 @@ func main() {
 		SignKey:  cfg.JWTSigningKey,
 	})
 	libSvc := media.NewService(jfClient, cfg.JellyfinURL, cfg.ProxyBaseURL, logger)
-	if err := libSvc.RefreshTmdbIndex(ctx); err != nil {
-		logger.Warn("tmdb index initial build failed, will retry on timer", "err", err)
-	}
-	go libSvc.StartTmdbIndexRefresher(ctx)
+	go func() {
+		if err := libSvc.RefreshTmdbIndex(ctx); err != nil {
+			logger.Warn("tmdb index initial build failed, will retry on timer", "err", err)
+		}
+		libSvc.StartTmdbIndexRefresher(ctx)
+	}()
 
 	srv := apihttp.NewServer(authSvc, libSvc, cfg.JellyfinURL, logger)
 	httpSrv := &stdhttp.Server{
