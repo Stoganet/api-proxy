@@ -139,6 +139,56 @@ func TestService_GetItem_TMDBPrefix_IndexNotBuilt_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestService_RefreshTmdbIndex_Paginates(t *testing.T) {
+	pages := map[jellyfin.ItemType][]jellyfin.Item{
+		jellyfin.ItemTypeMovie: {
+			{ID: "movie-1", ProviderIDs: map[string]string{"Tmdb": "1"}},
+			{ID: "movie-2", ProviderIDs: map[string]string{"Tmdb": "2"}},
+			{ID: "movie-3", ProviderIDs: map[string]string{"Tmdb": "3"}},
+		},
+		jellyfin.ItemTypeSeries: {},
+	}
+	callCount := 0
+	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		callCount++
+		all := pages[opts.Type]
+		total := len(all)
+		start := opts.StartIndex
+		end := start + opts.Limit
+		if end > total {
+			end = total
+		}
+		if start > total {
+			start = total
+		}
+		return &jellyfin.ItemsResult{
+			Items:      all[start:end],
+			TotalCount: total,
+			StartIndex: start,
+		}, nil
+	}}
+	svc := newSvc(jf)
+
+	if err := svc.refreshTmdbIndex(context.Background(), 2); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if callCount != 3 {
+		t.Errorf("GetItems call count: got %d, want 3 (2 movie pages + 1 empty series page)", callCount)
+	}
+
+	index := svc.tmdbIndex.Load()
+	for _, want := range []struct{ key, uuid string }{
+		{"movie:1", "movie-1"},
+		{"movie:2", "movie-2"},
+		{"movie:3", "movie-3"},
+	} {
+		if (*index)[want.key] != want.uuid {
+			t.Errorf("%s: got %q, want %q", want.key, (*index)[want.key], want.uuid)
+		}
+	}
+}
+
 func TestService_RefreshTmdbIndex_BuildsIndexFromBothTypes(t *testing.T) {
 	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
 		if opts.Fields != jellyfin.FieldsProviderIDsOnly {

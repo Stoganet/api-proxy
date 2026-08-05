@@ -44,8 +44,7 @@ func main() {
 	})
 	libSvc := media.NewService(jfClient, cfg.JellyfinURL, cfg.ProxyBaseURL, logger)
 	if err := libSvc.RefreshTmdbIndex(ctx); err != nil {
-		logger.Error("tmdb index initial build", "err", err)
-		os.Exit(2)
+		logger.Warn("tmdb index initial build failed, will retry on timer", "err", err)
 	}
 	go libSvc.StartTmdbIndexRefresher(ctx)
 

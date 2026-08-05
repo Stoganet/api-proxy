@@ -15,7 +15,10 @@ import (
 
 var ErrItemNotFound = errors.New("catalog: item not found")
 
-const tmdbIndexRefreshInterval = 5 * time.Minute
+const (
+	tmdbIndexRefreshInterval = 5 * time.Minute
+	tmdbIndexPageSize        = 200
+)
 
 type JellyfinClient interface {
 	GetItem(ctx context.Context, userID, itemID string) (*jellyfin.Item, error)
@@ -39,6 +42,10 @@ func NewService(jf JellyfinClient, jellyfinBaseURL, proxyBaseURL string, logger 
 }
 
 func (s *Service) RefreshTmdbIndex(ctx context.Context) error {
+	return s.refreshTmdbIndex(ctx, tmdbIndexPageSize)
+}
+
+func (s *Service) refreshTmdbIndex(ctx context.Context, pageSize int) error {
 	index := make(map[string]string)
 
 	for _, t := range []struct {
@@ -48,19 +55,28 @@ func (s *Service) RefreshTmdbIndex(ctx context.Context) error {
 		{jellyfin.ItemTypeMovie, TypeMovie},
 		{jellyfin.ItemTypeSeries, TypeTV},
 	} {
-		result, err := s.jf.GetItems(ctx, "", jellyfin.GetItemsOpts{
-			Type:   t.jfType,
-			Fields: jellyfin.FieldsProviderIDsOnly,
-		})
-		if err != nil {
-			return fmt.Errorf("RefreshTmdbIndex: %w", err)
-		}
-		for i := range result.Items {
-			tmdbID := result.Items[i].ProviderIDs["Tmdb"]
-			if tmdbID == "" {
-				continue
+		startIndex := 0
+		for {
+			result, err := s.jf.GetItems(ctx, "", jellyfin.GetItemsOpts{
+				Type:       t.jfType,
+				Fields:     jellyfin.FieldsProviderIDsOnly,
+				Limit:      pageSize,
+				StartIndex: startIndex,
+			})
+			if err != nil {
+				return fmt.Errorf("RefreshTmdbIndex: %w", err)
 			}
-			index[string(t.catalogT)+":"+tmdbID] = result.Items[i].ID
+			for i := range result.Items {
+				tmdbID := result.Items[i].ProviderIDs["Tmdb"]
+				if tmdbID == "" {
+					continue
+				}
+				index[string(t.catalogT)+":"+tmdbID] = result.Items[i].ID
+			}
+			startIndex += len(result.Items)
+			if len(result.Items) == 0 || startIndex >= result.TotalCount {
+				break
+			}
 		}
 	}
 
