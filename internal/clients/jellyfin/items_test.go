@@ -96,3 +96,67 @@ func TestGetItems_ReturnsPaginatedResult(t *testing.T) {
 		t.Errorf("TotalCount: got %d", res.TotalCount)
 	}
 }
+
+func TestGetItems_DefaultFields_UsesDetailFieldSet(t *testing.T) {
+	var gotFields string
+	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotFields = r.URL.Query().Get("Fields")
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	})
+
+	_, err := c.GetItems(context.Background(), "uid-1", GetItemsOpts{Type: "Movie"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotFields != FieldsDetail {
+		t.Errorf("Fields: got %q, want %q", gotFields, FieldsDetail)
+	}
+}
+
+func TestGetItems_CustomFields_Overrides(t *testing.T) {
+	var gotFields string
+	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotFields = r.URL.Query().Get("Fields")
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	})
+
+	_, err := c.GetItems(context.Background(), "uid-1", GetItemsOpts{Type: "Movie", Fields: FieldsProviderIDsOnly})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotFields != FieldsProviderIDsOnly {
+		t.Errorf("Fields: got %q, want %q", gotFields, FieldsProviderIDsOnly)
+	}
+}
+
+func TestGetItems_EmptyUserID_UsesUnscopedItemsPath(t *testing.T) {
+	var gotPath string
+	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	})
+
+	_, err := c.GetItems(context.Background(), "", GetItemsOpts{Type: "Movie"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPath != "/Items" {
+		t.Errorf("path: got %q, want %q", gotPath, "/Items")
+	}
+}
+
+func TestGetItems_NonEmptyUserID_UsesScopedItemsPath(t *testing.T) {
+	var gotPath string
+	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	})
+
+	_, err := c.GetItems(context.Background(), "uid-1", GetItemsOpts{Type: "Movie"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPath != "/Users/uid-1/Items" {
+		t.Errorf("path: got %q, want %q", gotPath, "/Users/uid-1/Items")
+	}
+}

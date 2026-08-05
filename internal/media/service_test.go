@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -71,57 +72,147 @@ func TestService_GetItem_JFPrefix_StripsPrefix(t *testing.T) {
 	}
 }
 
-func TestService_GetItem_TMDBPrefix_UsesProviderIDSearch(t *testing.T) {
-	jf := &fakeJF{items: &jellyfin.ItemsResult{
-		Items: []jellyfin.Item{{
-			ID:          "abc-uuid",
-			Name:        "The Matrix",
-			Type:        "Movie",
-			ProviderIDs: map[string]string{"Tmdb": "603"},
-		}},
-		TotalCount: 1,
+func TestService_GetItem_TMDBPrefix_UsesIndex(t *testing.T) {
+	jf := &fakeJF{item: &jellyfin.Item{
+		ID:          "abc-uuid",
+		Name:        "The Matrix",
+		Type:        "Movie",
+		ProviderIDs: map[string]string{"Tmdb": "603"},
 	}}
 	svc := newSvc(jf)
+	svc.tmdbIndex.Store(&map[string]string{"movie:603": "abc-uuid"})
+
 	d, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:603")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if jf.capturedOpts.ProviderID != "Tmdb.603" {
-		t.Errorf("ProviderID filter: got %q, want %q", jf.capturedOpts.ProviderID, "Tmdb.603")
+	if jf.capturedItemID != "abc-uuid" {
+		t.Errorf("capturedItemID: got %q, want %q", jf.capturedItemID, "abc-uuid")
 	}
 	if d.ID != "tmdb:movie:603" {
 		t.Errorf("catalog ID: got %q", d.ID)
 	}
 }
 
-func TestService_GetItem_TMDBPrefix_MatchesCorrectItem_NotFirst(t *testing.T) {
-	jf := &fakeJF{items: &jellyfin.ItemsResult{
-		Items: []jellyfin.Item{
-			{ID: "wrong-uuid", Name: "Movie A", Type: "Movie", ProviderIDs: map[string]string{"Tmdb": "111"}},
-			{ID: "target-uuid", Name: "Movie B", Type: "Movie", ProviderIDs: map[string]string{"Tmdb": "603"}},
-			{ID: "other-uuid", Name: "Movie C", Type: "Movie", ProviderIDs: map[string]string{"Tmdb": "222"}},
-		},
-		TotalCount: 3,
+func TestService_GetItem_TMDBPrefix_MatchesCorrectItem_NotFirstIndexEntry(t *testing.T) {
+	jf := &fakeJF{item: &jellyfin.Item{
+		ID:          "target-uuid",
+		Name:        "Movie B",
+		Type:        "Movie",
+		ProviderIDs: map[string]string{"Tmdb": "603"},
 	}}
 	svc := newSvc(jf)
+	svc.tmdbIndex.Store(&map[string]string{
+		"movie:111": "wrong-uuid",
+		"movie:603": "target-uuid",
+		"movie:222": "other-uuid",
+	})
+
 	d, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:603")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if jf.capturedItemID != "target-uuid" {
+		t.Errorf("capturedItemID: got %q, want %q", jf.capturedItemID, "target-uuid")
+	}
 	if d.ID != "tmdb:movie:603" {
 		t.Errorf("catalog ID: got %q, want %q", d.ID, "tmdb:movie:603")
 	}
-	if d.Title != "Movie B" {
-		t.Errorf("resolved wrong item: got %q, want %q", d.Title, "Movie B")
-	}
 }
 
-func TestService_GetItem_TMDBPrefix_NotInJellyfin_ReturnsNotFound(t *testing.T) {
-	jf := &fakeJF{items: &jellyfin.ItemsResult{Items: []jellyfin.Item{}, TotalCount: 0}}
-	svc := newSvc(jf)
+func TestService_GetItem_TMDBPrefix_NotInIndex_ReturnsNotFound(t *testing.T) {
+	svc := newSvc(&fakeJF{})
+	svc.tmdbIndex.Store(&map[string]string{})
+
 	_, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:999")
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Fatalf("want ErrItemNotFound, got %v", err)
+	}
+}
+
+func TestService_GetItem_TMDBPrefix_IndexNotBuilt_ReturnsError(t *testing.T) {
+	svc := newSvc(&fakeJF{})
+
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:603")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+}
+
+func TestService_RefreshTmdbIndex_BuildsIndexFromBothTypes(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		if opts.Fields != jellyfin.FieldsProviderIDsOnly {
+			t.Errorf("Fields: got %q, want %q", opts.Fields, jellyfin.FieldsProviderIDsOnly)
+		}
+		switch opts.Type {
+		case jellyfin.ItemTypeMovie:
+			return &jellyfin.ItemsResult{Items: []jellyfin.Item{
+				{ID: "movie-uuid", ProviderIDs: map[string]string{"Tmdb": "603"}},
+			}}, nil
+		case jellyfin.ItemTypeSeries:
+			return &jellyfin.ItemsResult{Items: []jellyfin.Item{
+				{ID: "series-uuid", ProviderIDs: map[string]string{"Tmdb": "1399"}},
+			}}, nil
+		}
+		return nil, fmt.Errorf("unexpected type %q", opts.Type)
+	}}
+	svc := newSvc(jf)
+
+	if err := svc.RefreshTmdbIndex(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	index := svc.tmdbIndex.Load()
+	if index == nil {
+		t.Fatal("index not stored")
+	}
+	if (*index)["movie:603"] != "movie-uuid" {
+		t.Errorf("movie:603: got %q, want %q", (*index)["movie:603"], "movie-uuid")
+	}
+	if (*index)["tv:1399"] != "series-uuid" {
+		t.Errorf("tv:1399: got %q, want %q", (*index)["tv:1399"], "series-uuid")
+	}
+}
+
+func TestService_RefreshTmdbIndex_SkipsItemsWithoutTmdbID(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		if opts.Type != jellyfin.ItemTypeMovie {
+			return &jellyfin.ItemsResult{}, nil
+		}
+		return &jellyfin.ItemsResult{Items: []jellyfin.Item{
+			{ID: "no-tmdb-uuid", ProviderIDs: map[string]string{}},
+			{ID: "movie-uuid", ProviderIDs: map[string]string{"Tmdb": "603"}},
+		}}, nil
+	}}
+	svc := newSvc(jf)
+
+	if err := svc.RefreshTmdbIndex(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	index := svc.tmdbIndex.Load()
+	if len(*index) != 1 {
+		t.Errorf("index size: got %d, want 1", len(*index))
+	}
+	if (*index)["movie:603"] != "movie-uuid" {
+		t.Errorf("movie:603: got %q, want %q", (*index)["movie:603"], "movie-uuid")
+	}
+}
+
+func TestService_RefreshTmdbIndex_ErrorDoesNotClobberExistingIndex(t *testing.T) {
+	jf := &fakeJFFunc{fn: func(_ jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		return nil, errors.New("jellyfin unreachable")
+	}}
+	svc := newSvc(jf)
+	svc.tmdbIndex.Store(&map[string]string{"movie:603": "stale-but-valid-uuid"})
+
+	if err := svc.RefreshTmdbIndex(context.Background()); err == nil {
+		t.Fatal("want error, got nil")
+	}
+
+	index := svc.tmdbIndex.Load()
+	if (*index)["movie:603"] != "stale-but-valid-uuid" {
+		t.Errorf("index was clobbered: got %q", (*index)["movie:603"])
 	}
 }
 
