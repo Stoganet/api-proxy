@@ -94,6 +94,28 @@ func TestService_GetItem_TMDBPrefix_UsesProviderIDSearch(t *testing.T) {
 	}
 }
 
+func TestService_GetItem_TMDBPrefix_MatchesCorrectItem_NotFirst(t *testing.T) {
+	jf := &fakeJF{items: &jellyfin.ItemsResult{
+		Items: []jellyfin.Item{
+			{ID: "wrong-uuid", Name: "Movie A", Type: "Movie", ProviderIDs: map[string]string{"Tmdb": "111"}},
+			{ID: "target-uuid", Name: "Movie B", Type: "Movie", ProviderIDs: map[string]string{"Tmdb": "603"}},
+			{ID: "other-uuid", Name: "Movie C", Type: "Movie", ProviderIDs: map[string]string{"Tmdb": "222"}},
+		},
+		TotalCount: 3,
+	}}
+	svc := newSvc(jf)
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:603")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d.ID != "tmdb:movie:603" {
+		t.Errorf("catalog ID: got %q, want %q", d.ID, "tmdb:movie:603")
+	}
+	if d.Title != "Movie B" {
+		t.Errorf("resolved wrong item: got %q, want %q", d.Title, "Movie B")
+	}
+}
+
 func TestService_GetItem_TMDBPrefix_NotInJellyfin_ReturnsNotFound(t *testing.T) {
 	jf := &fakeJF{items: &jellyfin.ItemsResult{Items: []jellyfin.Item{}, TotalCount: 0}}
 	svc := newSvc(jf)

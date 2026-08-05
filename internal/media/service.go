@@ -102,11 +102,6 @@ func (s *Service) GetEpisodes(ctx context.Context, jfUserID, catalogID string, s
 	return result, nil
 }
 
-// resolveItem translates a catalog ID to a Jellyfin item.
-//
-// Catalog IDs have two forms:
-//   - "jf:{jellyfinUUID}"      → direct Jellyfin lookup after stripping prefix
-//   - "tmdb:{type}:{tmdbID}"   → provider-ID search via AnyProviderIdEquals
 func (s *Service) resolveItem(ctx context.Context, jfUserID, catalogID string) (*jellyfin.Item, error) {
 	if jfID, ok := strings.CutPrefix(catalogID, "jf:"); ok {
 		item, err := s.jf.GetItem(ctx, jfUserID, jfID)
@@ -124,18 +119,29 @@ func (s *Service) resolveItem(ctx context.Context, jfUserID, catalogID string) (
 		if len(parts) != 3 {
 			return nil, ErrItemNotFound
 		}
-		providerID := "Tmdb." + parts[2]
+		var itemType jellyfin.ItemType
+		switch Type(parts[1]) {
+		case TypeMovie:
+			itemType = jellyfin.ItemTypeMovie
+		case TypeTV:
+			itemType = jellyfin.ItemTypeSeries
+		default:
+			return nil, ErrItemNotFound
+		}
+		tmdbID := parts[2]
 		result, err := s.jf.GetItems(ctx, jfUserID, jellyfin.GetItemsOpts{
-			ProviderID: providerID,
-			Limit:      1,
+			Type:       itemType,
+			ProviderID: "Tmdb." + tmdbID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("catalog resolveItem: %w", err)
 		}
-		if len(result.Items) == 0 {
-			return nil, ErrItemNotFound
+		for i := range result.Items {
+			if result.Items[i].ProviderIDs["Tmdb"] == tmdbID {
+				return &result.Items[i], nil
+			}
 		}
-		return &result.Items[0], nil
+		return nil, ErrItemNotFound
 	}
 
 	return nil, ErrItemNotFound
