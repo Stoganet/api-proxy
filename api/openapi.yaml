@@ -510,3 +510,42 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /playback/{id}/progress:
+    put:
+      summary: Report playback progress for an item
+      operationId: putPlaybackIdProgress
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WatchProgress' }
+      responses:
+        '204':
+          description: Progress saved
+        '400':
+          description: Validation error (e.g. negative position_ms)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Jellyfin unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

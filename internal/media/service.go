@@ -27,6 +27,7 @@ type JellyfinClient interface {
 	GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]jellyfin.Episode, error)
 	GetNextUp(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
 	GetFirstEpisode(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
+	SetUserData(ctx context.Context, userID, itemID string, positionMS int64, played bool) error
 }
 
 type Service struct {
@@ -109,6 +110,16 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 	}
 	d := toDetail(*item, s.baseURL, s.proxyBaseURL)
 	return &d, nil
+}
+
+func (s *Service) ReportProgress(ctx context.Context, jfUserID, itemID string, positionMS int64, played bool) error {
+	if err := s.jf.SetUserData(ctx, jfUserID, itemID, positionMS, played); err != nil {
+		if errors.Is(err, jellyfin.ErrItemNotFound) {
+			return ErrItemNotFound
+		}
+		return fmt.Errorf("ReportProgress: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jellyfin.Item) (*Detail, error) {

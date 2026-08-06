@@ -22,6 +22,7 @@ type fakeLibrary struct {
 	homeErr     error
 	episodes    []media.Episode
 	episodesErr error
+	progressErr error
 }
 
 func (f *fakeLibrary) GetItem(_ context.Context, _, _ string) (*media.Detail, error) {
@@ -35,6 +36,9 @@ func (f *fakeLibrary) Home(_ context.Context, _ string) (*media.HomeResult, erro
 }
 func (f *fakeLibrary) GetEpisodes(_ context.Context, _, _ string, _ int) ([]media.Episode, error) {
 	return f.episodes, f.episodesErr
+}
+func (f *fakeLibrary) ReportProgress(_ context.Context, _, _ string, _ int64, _ bool) error {
+	return f.progressErr
 }
 
 func newLibraryServer(t *testing.T, fa *fakeAuth, fc *fakeLibrary) http.Handler {

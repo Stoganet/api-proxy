@@ -30,6 +30,7 @@ type libraryService interface {
 	List(ctx context.Context, jfUserID string, opts media.ListOpts) (*media.ListResult, error)
 	Home(ctx context.Context, jfUserID string) (*media.HomeResult, error)
 	GetEpisodes(ctx context.Context, jfUserID, showID string, seasonNumber int) ([]media.Episode, error)
+	ReportProgress(ctx context.Context, jfUserID, itemID string, positionMS int64, played bool) error
 }
 
 type Server struct {

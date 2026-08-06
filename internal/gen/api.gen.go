@@ -315,6 +315,9 @@ type PostAuthQuickConnectPollJSONRequestBody = QuickConnectPollRequest
 // PostAuthRefreshJSONRequestBody defines body for PostAuthRefresh for application/json ContentType.
 type PostAuthRefreshJSONRequestBody = RefreshRequest
 
+// PutPlaybackIdProgressJSONRequestBody defines body for PutPlaybackIdProgress for application/json ContentType.
+type PutPlaybackIdProgressJSONRequestBody = WatchProgress
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Username + password login (proxied through Jellyfin AuthenticateByName)
@@ -350,6 +353,9 @@ type ServerInterface interface {
 	// Episode list for a season
 	// (GET /library/{id}/seasons/{seasonNumber}/episodes)
 	GetLibraryIdSeasonsSeasonNumberEpisodes(w http.ResponseWriter, r *http.Request, id string, seasonNumber int)
+	// Report playback progress for an item
+	// (PUT /playback/{id}/progress)
+	PutPlaybackIdProgress(w http.ResponseWriter, r *http.Request, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -629,6 +635,38 @@ func (siw *ServerInterfaceWrapper) GetLibraryIdSeasonsSeasonNumberEpisodes(w htt
 	handler.ServeHTTP(w, r)
 }
 
+// PutPlaybackIdProgress operation middleware
+func (siw *ServerInterfaceWrapper) PutPlaybackIdProgress(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerJWTScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutPlaybackIdProgress(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -760,6 +798,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library", wrapper.GetLibrary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/{id}", wrapper.GetLibraryId)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/{id}/seasons/{seasonNumber}/episodes", wrapper.GetLibraryIdSeasonsSeasonNumberEpisodes)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/playback/{id}/progress", wrapper.PutPlaybackIdProgress)
 
 	return m
 }
@@ -1253,6 +1292,79 @@ func (response GetLibraryIdSeasonsSeasonNumberEpisodes503JSONResponse) VisitGetL
 	return err
 }
 
+type PutPlaybackIdProgressRequestObject struct {
+	Id   string `json:"id"`
+	Body *PutPlaybackIdProgressJSONRequestBody
+}
+
+type PutPlaybackIdProgressResponseObject interface {
+	VisitPutPlaybackIdProgressResponse(w http.ResponseWriter) error
+}
+
+type PutPlaybackIdProgress204Response struct {
+}
+
+func (response PutPlaybackIdProgress204Response) VisitPutPlaybackIdProgressResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutPlaybackIdProgress400JSONResponse Error
+
+func (response PutPlaybackIdProgress400JSONResponse) VisitPutPlaybackIdProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlaybackIdProgress401JSONResponse Error
+
+func (response PutPlaybackIdProgress401JSONResponse) VisitPutPlaybackIdProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlaybackIdProgress404JSONResponse Error
+
+func (response PutPlaybackIdProgress404JSONResponse) VisitPutPlaybackIdProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlaybackIdProgress503JSONResponse Error
+
+func (response PutPlaybackIdProgress503JSONResponse) VisitPutPlaybackIdProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Username + password login (proxied through Jellyfin AuthenticateByName)
@@ -1288,6 +1400,9 @@ type StrictServerInterface interface {
 	// Episode list for a season
 	// (GET /library/{id}/seasons/{seasonNumber}/episodes)
 	GetLibraryIdSeasonsSeasonNumberEpisodes(ctx context.Context, request GetLibraryIdSeasonsSeasonNumberEpisodesRequestObject) (GetLibraryIdSeasonsSeasonNumberEpisodesResponseObject, error)
+	// Report playback progress for an item
+	// (PUT /playback/{id}/progress)
+	PutPlaybackIdProgress(ctx context.Context, request PutPlaybackIdProgressRequestObject) (PutPlaybackIdProgressResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1618,47 +1733,81 @@ func (sh *strictHandler) GetLibraryIdSeasonsSeasonNumberEpisodes(w http.Response
 	}
 }
 
+// PutPlaybackIdProgress operation middleware
+func (sh *strictHandler) PutPlaybackIdProgress(w http.ResponseWriter, r *http.Request, id string) {
+	var request PutPlaybackIdProgressRequestObject
+
+	request.Id = id
+
+	var body PutPlaybackIdProgressJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutPlaybackIdProgress(ctx, request.(PutPlaybackIdProgressRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutPlaybackIdProgress")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutPlaybackIdProgressResponseObject); ok {
+		if err := validResponse.VisitPutPlaybackIdProgressResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"/Lt3ePeMYSajEVT8zISHhbNMlcn6bv3fAAAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

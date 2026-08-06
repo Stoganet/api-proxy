@@ -160,3 +160,53 @@ func TestGetItems_NonEmptyUserID_UsesScopedItemsPath(t *testing.T) {
 		t.Errorf("path: got %q, want %q", gotPath, "/Users/uid-1/Items")
 	}
 }
+
+func TestSetUserData_SendsExpectedRequest(t *testing.T) {
+	var (
+		gotPath   string
+		gotUserID string
+		gotToken  string
+		gotBody   struct {
+			PlaybackPositionTicks int64
+			Played                bool
+		}
+	)
+	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotUserID = r.URL.Query().Get("userId")
+		gotToken = r.Header.Get("X-Emby-Token")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	})
+
+	err := c.SetUserData(context.Background(), "uid-1", "item-1", 1234, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPath != "/UserItems/item-1/UserData" {
+		t.Errorf("path: got %q", gotPath)
+	}
+	if gotUserID != "uid-1" {
+		t.Errorf("userId: got %q", gotUserID)
+	}
+	if gotToken != "test-api-key" {
+		t.Errorf("token: got %q", gotToken)
+	}
+	if gotBody.PlaybackPositionTicks != 1234*10_000 {
+		t.Errorf("PlaybackPositionTicks: got %d", gotBody.PlaybackPositionTicks)
+	}
+	if !gotBody.Played {
+		t.Errorf("Played: got false, want true")
+	}
+}
+
+func TestSetUserData_NotFound_ReturnsErrItemNotFound(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
+	err := c.SetUserData(context.Background(), "uid-1", "missing", 0, false)
+	if !errors.Is(err, ErrItemNotFound) {
+		t.Fatalf("want ErrItemNotFound, got %v", err)
+	}
+}

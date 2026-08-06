@@ -24,6 +24,9 @@ type fakeJF struct {
 	getNextUpErr       error
 	getFirstEpisode    *jellyfin.Episode
 	getFirstEpisodeErr error
+	setUserDataErr     error
+	capturedPositionMS int64
+	capturedPlayed     bool
 }
 
 func (f *fakeJF) GetItem(_ context.Context, _, itemID string) (*jellyfin.Item, error) {
@@ -50,6 +53,13 @@ func (f *fakeJF) GetNextUp(_ context.Context, _, _ string) (*jellyfin.Episode, e
 
 func (f *fakeJF) GetFirstEpisode(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
 	return f.getFirstEpisode, f.getFirstEpisodeErr
+}
+
+func (f *fakeJF) SetUserData(_ context.Context, _, itemID string, positionMS int64, played bool) error {
+	f.capturedItemID = itemID
+	f.capturedPositionMS = positionMS
+	f.capturedPlayed = played
+	return f.setUserDataErr
 }
 
 func newSvc(jf JellyfinClient) *Service {
@@ -404,6 +414,10 @@ func (f *fakeJFFunc) GetFirstEpisode(_ context.Context, _, _ string) (*jellyfin.
 	return nil, nil
 }
 
+func (f *fakeJFFunc) SetUserData(_ context.Context, _, _ string, _ int64, _ bool) error {
+	return nil
+}
+
 func okSection() *jellyfin.ItemsResult {
 	return &jellyfin.ItemsResult{
 		Items:      []jellyfin.Item{{ID: "jf-1", Type: jellyfin.ItemTypeMovie}},
@@ -580,5 +594,32 @@ func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
 	}
 	if len(eps) != 0 {
 		t.Errorf("expected empty slice, got %d", len(eps))
+	}
+}
+
+func TestReportProgress_PassesThroughToJellyfin(t *testing.T) {
+	jf := &fakeJF{}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	err := svc.ReportProgress(context.Background(), "uid", "item-1", 5000, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jf.capturedItemID != "item-1" {
+		t.Errorf("itemID: got %q", jf.capturedItemID)
+	}
+	if jf.capturedPositionMS != 5000 {
+		t.Errorf("positionMS: got %d", jf.capturedPositionMS)
+	}
+	if !jf.capturedPlayed {
+		t.Errorf("played: got false, want true")
+	}
+}
+
+func TestReportProgress_ItemNotFound_ReturnsErrItemNotFound(t *testing.T) {
+	jf := &fakeJF{setUserDataErr: jellyfin.ErrItemNotFound}
+	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	err := svc.ReportProgress(context.Background(), "uid", "missing", 0, false)
+	if !errors.Is(err, ErrItemNotFound) {
+		t.Errorf("got %v, want ErrItemNotFound", err)
 	}
 }

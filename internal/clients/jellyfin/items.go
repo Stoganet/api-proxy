@@ -1,12 +1,15 @@
 package jellyfin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 )
+
+const ticksPerMS = 10_000
 
 type ItemType string
 
@@ -100,6 +103,48 @@ func (c *Client) GetItem(ctx context.Context, userID, itemID string) (*Item, err
 		return nil, fmt.Errorf("jellyfin GetItem: decode: %w", err)
 	}
 	return decoded.toItem(), nil
+}
+
+func (c *Client) SetUserData(ctx context.Context, userID, itemID string, positionMS int64, played bool) error {
+	raw, err := url.JoinPath(c.baseURL, "UserItems", itemID, "UserData")
+	if err != nil {
+		return fmt.Errorf("jellyfin SetUserData: %w", err)
+	}
+	body, err := json.Marshal(struct {
+		PlaybackPositionTicks int64 `json:"PlaybackPositionTicks"`
+		Played                bool  `json:"Played"`
+	}{
+		PlaybackPositionTicks: positionMS * ticksPerMS,
+		Played:                played,
+	})
+	if err != nil {
+		return fmt.Errorf("jellyfin SetUserData: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, raw, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	q := req.URL.Query()
+	q.Set("userId", userID)
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Emby-Authorization", authHeader(userID))
+	req.Header.Set("X-Emby-Token", c.apiKey)
+
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return fmt.Errorf("jellyfin SetUserData: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrItemNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("jellyfin SetUserData: unexpected status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts) (*ItemsResult, error) {
