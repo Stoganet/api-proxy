@@ -3,9 +3,13 @@ package media
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
+	"github.com/Stoganet/api-proxy/internal/clients/seerr"
 )
+
+const tmdbImageBaseURL = "https://image.tmdb.org/t/p/w500"
 
 func joinURL(base string, parts ...string) string {
 	u, err := url.JoinPath(base, parts...)
@@ -172,4 +176,51 @@ func backdrop(jf jellyfin.Item, baseURL string) string {
 		return ""
 	}
 	return joinURL(baseURL, "Items", jf.ID, "Images", "Backdrop", "0")
+}
+
+func toSearchItem(sr seerr.SearchResult) Item {
+	poster := ""
+	if sr.PosterPath != "" {
+		poster = tmdbImageBaseURL + sr.PosterPath
+	}
+	backdrop := ""
+	if sr.BackdropPath != "" {
+		backdrop = tmdbImageBaseURL + sr.BackdropPath
+	}
+	return Item{
+		ID:       fmt.Sprintf("tmdb:movie:%d", sr.TmdbID),
+		Title:    sr.Title,
+		Year:     yearFromReleaseDate(sr.ReleaseDate),
+		Type:     TypeMovie,
+		Poster:   poster,
+		Backdrop: backdrop,
+		Overview: sr.Overview,
+		State:    stateFromSeerrMediaInfo(sr.MediaInfo),
+	}
+}
+
+func stateFromSeerrMediaInfo(mi *seerr.MediaInfo) State {
+	if mi == nil {
+		return StateRequestable
+	}
+	switch mi.Status {
+	case seerr.StatusAvailable, seerr.StatusPartiallyAvailable:
+		return StatePlayable
+	case seerr.StatusPending, seerr.StatusProcessing:
+		return StateDownloading
+	default:
+		return StateRequestable
+	}
+}
+
+// yearFromReleaseDate extracts the year from a "YYYY-MM-DD" TMDB date string.
+func yearFromReleaseDate(releaseDate string) int {
+	if len(releaseDate) < 4 {
+		return 0
+	}
+	y, err := strconv.Atoi(releaseDate[:4])
+	if err != nil {
+		return 0
+	}
+	return y
 }

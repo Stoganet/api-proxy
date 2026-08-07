@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
+	"github.com/Stoganet/api-proxy/internal/clients/seerr"
 )
 
 func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
@@ -309,5 +310,72 @@ func TestToSeriesDetail_NoFirstEpisode_NilStart(t *testing.T) {
 	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
 	if d.Start != nil {
 		t.Errorf("Start should be nil when no firstEpisode, got %+v", d.Start)
+	}
+}
+
+func TestToSearchItem_BuildsCorrectShape(t *testing.T) {
+	sr := seerr.SearchResult{
+		TmdbID:       603,
+		MediaType:    "movie",
+		Title:        "The Matrix",
+		Overview:     "A hacker discovers reality is a simulation.",
+		PosterPath:   "/poster.jpg",
+		BackdropPath: "/backdrop.jpg",
+		ReleaseDate:  "1999-03-31",
+	}
+
+	got := toSearchItem(sr)
+
+	fields := []struct {
+		name string
+		got  any
+		want any
+	}{
+		{"ID", got.ID, "tmdb:movie:603"},
+		{"Title", got.Title, "The Matrix"},
+		{"Year", got.Year, 1999},
+		{"Type", got.Type, TypeMovie},
+		{"State", got.State, StateRequestable},
+		{"Overview", got.Overview, "A hacker discovers reality is a simulation."},
+		{"Poster", got.Poster, "https://image.tmdb.org/t/p/w500/poster.jpg"},
+		{"Backdrop", got.Backdrop, "https://image.tmdb.org/t/p/w500/backdrop.jpg"},
+	}
+	for _, f := range fields {
+		if f.got != f.want {
+			t.Errorf("%s: got %v, want %v", f.name, f.got, f.want)
+		}
+	}
+}
+
+func TestToSearchItem_NoImages_EmptyStrings(t *testing.T) {
+	got := toSearchItem(seerr.SearchResult{TmdbID: 1, Title: "No Poster"})
+	if got.Poster != "" {
+		t.Errorf("Poster: got %q, want empty", got.Poster)
+	}
+	if got.Backdrop != "" {
+		t.Errorf("Backdrop: got %q, want empty", got.Backdrop)
+	}
+}
+
+func TestStateFromSeerrMediaInfo(t *testing.T) {
+	cases := []struct {
+		name string
+		mi   *seerr.MediaInfo
+		want State
+	}{
+		{"nil mediaInfo", nil, StateRequestable},
+		{"unknown", &seerr.MediaInfo{Status: seerr.StatusUnknown}, StateRequestable},
+		{"deleted", &seerr.MediaInfo{Status: seerr.StatusDeleted}, StateRequestable},
+		{"pending", &seerr.MediaInfo{Status: seerr.StatusPending}, StateDownloading},
+		{"processing", &seerr.MediaInfo{Status: seerr.StatusProcessing}, StateDownloading},
+		{"available", &seerr.MediaInfo{Status: seerr.StatusAvailable}, StatePlayable},
+		{"partially available", &seerr.MediaInfo{Status: seerr.StatusPartiallyAvailable}, StatePlayable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := stateFromSeerrMediaInfo(tc.mi); got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

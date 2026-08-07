@@ -8,7 +8,26 @@ import (
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
+	"github.com/Stoganet/api-proxy/internal/clients/seerr"
 )
+
+type fakeSeerr struct {
+	searchResults   []seerr.SearchResult
+	searchErr       error
+	capturedQuery   string
+	capturedTmdbID  int
+	requestMovieErr error
+}
+
+func (f *fakeSeerr) Search(_ context.Context, query string) ([]seerr.SearchResult, error) {
+	f.capturedQuery = query
+	return f.searchResults, f.searchErr
+}
+
+func (f *fakeSeerr) RequestMovie(_ context.Context, tmdbID int) error {
+	f.capturedTmdbID = tmdbID
+	return f.requestMovieErr
+}
 
 type fakeJF struct {
 	item               *jellyfin.Item
@@ -63,7 +82,7 @@ func (f *fakeJF) SetUserData(_ context.Context, _, itemID string, positionMS int
 }
 
 func newSvc(jf JellyfinClient) *Service {
-	return NewService(jf, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
+	return NewService(jf, &fakeSeerr{}, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
 }
 
 func TestService_GetItem_JFPrefix_StripsPrefix(t *testing.T) {
@@ -510,7 +529,7 @@ func TestGetItem_Series_ReturnsSeasonsAndResume(t *testing.T) {
 			UserData: jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000},
 		},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	d, err := svc.GetItem(context.Background(), "uid", "jf:tv1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -533,7 +552,7 @@ func TestGetItem_Movie_HasPlayAndProgress(t *testing.T) {
 			UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000},
 		},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	d, err := svc.GetItem(context.Background(), "uid", "jf:mov1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -557,7 +576,7 @@ func TestGetEpisodes_ReturnsMappedEpisodes(t *testing.T) {
 				RunTimeTicks: 17_640_000_000},
 		},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -575,7 +594,7 @@ func TestGetEpisodes_JellyfinSeriesNotFound_ReturnsErrItemNotFound(t *testing.T)
 		item:           &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
 		getEpisodesErr: jellyfin.ErrItemNotFound,
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	_, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Errorf("got %v, want ErrItemNotFound", err)
@@ -587,7 +606,7 @@ func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
 		item:        &jellyfin.Item{ID: "tv1", Type: jellyfin.ItemTypeSeries},
 		getEpisodes: []jellyfin.Episode{},
 	}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	eps, err := svc.GetEpisodes(context.Background(), "uid", "jf:tv1", 99)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -599,7 +618,7 @@ func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
 
 func TestReportProgress_PassesThroughToJellyfin(t *testing.T) {
 	jf := &fakeJF{}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	err := svc.ReportProgress(context.Background(), "uid", "item-1", 5000, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -617,9 +636,72 @@ func TestReportProgress_PassesThroughToJellyfin(t *testing.T) {
 
 func TestReportProgress_ItemNotFound_ReturnsErrItemNotFound(t *testing.T) {
 	jf := &fakeJF{setUserDataErr: jellyfin.ErrItemNotFound}
-	svc := NewService(jf, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 	err := svc.ReportProgress(context.Background(), "uid", "missing", 0, false)
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Errorf("got %v, want ErrItemNotFound", err)
+	}
+}
+
+func TestSearch_MapsResultsAndPassesQuery(t *testing.T) {
+	sr := &fakeSeerr{searchResults: []seerr.SearchResult{
+		{TmdbID: 603, Title: "The Matrix", MediaType: "movie"},
+	}}
+	svc := NewService(&fakeJF{}, sr, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+
+	items, err := svc.Search(context.Background(), "matrix")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sr.capturedQuery != "matrix" {
+		t.Errorf("query: got %q, want %q", sr.capturedQuery, "matrix")
+	}
+	if len(items) != 1 || items[0].ID != "tmdb:movie:603" {
+		t.Errorf("items: %+v", items)
+	}
+}
+
+func TestSearch_UpstreamError_Wrapped(t *testing.T) {
+	sr := &fakeSeerr{searchErr: errors.New("seerr down")}
+	svc := NewService(&fakeJF{}, sr, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+
+	_, err := svc.Search(context.Background(), "matrix")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestRequestMovie_ValidCatalogID_PassesTmdbID(t *testing.T) {
+	sr := &fakeSeerr{}
+	svc := NewService(&fakeJF{}, sr, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+
+	if err := svc.RequestMovie(context.Background(), "tmdb:movie:603"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sr.capturedTmdbID != 603 {
+		t.Errorf("tmdbID: got %d, want 603", sr.capturedTmdbID)
+	}
+}
+
+func TestRequestMovie_NonMovieOrMalformedID_ReturnsErrNotRequestable(t *testing.T) {
+	cases := []string{"tmdb:tv:1396", "jf:abc-uuid", "tmdb:movie:not-a-number", "garbage"}
+	for _, id := range cases {
+		t.Run(id, func(t *testing.T) {
+			svc := NewService(&fakeJF{}, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+			err := svc.RequestMovie(context.Background(), id)
+			if !errors.Is(err, ErrNotRequestable) {
+				t.Errorf("got %v, want ErrNotRequestable", err)
+			}
+		})
+	}
+}
+
+func TestRequestMovie_UpstreamError_Wrapped(t *testing.T) {
+	sr := &fakeSeerr{requestMovieErr: errors.New("seerr down")}
+	svc := NewService(&fakeJF{}, sr, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+
+	err := svc.RequestMovie(context.Background(), "tmdb:movie:603")
+	if err == nil || errors.Is(err, ErrNotRequestable) {
+		t.Errorf("got %v, want wrapped upstream error", err)
 	}
 }

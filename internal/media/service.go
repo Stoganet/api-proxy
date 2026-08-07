@@ -5,15 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
+	"github.com/Stoganet/api-proxy/internal/clients/seerr"
 )
 
 var ErrItemNotFound = errors.New("catalog: item not found")
+var ErrNotRequestable = errors.New("catalog: id is not a requestable movie")
 
 const (
 	tmdbIndexRefreshInterval = 5 * time.Minute
@@ -30,16 +33,22 @@ type JellyfinClient interface {
 	SetUserData(ctx context.Context, userID, itemID string, positionMS int64, played bool) error
 }
 
+type SeerrClient interface {
+	Search(ctx context.Context, query string) ([]seerr.SearchResult, error)
+	RequestMovie(ctx context.Context, tmdbID int) error
+}
+
 type Service struct {
 	jf           JellyfinClient
+	seerr        SeerrClient
 	baseURL      string
 	proxyBaseURL string
 	logger       *slog.Logger
 	tmdbIndex    atomic.Pointer[map[string]string]
 }
 
-func NewService(jf JellyfinClient, jellyfinBaseURL, proxyBaseURL string, logger *slog.Logger) *Service {
-	return &Service{jf: jf, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL, logger: logger}
+func NewService(jf JellyfinClient, sr SeerrClient, jellyfinBaseURL, proxyBaseURL string, logger *slog.Logger) *Service {
+	return &Service{jf: jf, seerr: sr, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL, logger: logger}
 }
 
 func (s *Service) RefreshTmdbIndex(ctx context.Context) error {
@@ -324,4 +333,39 @@ func (s *Service) List(ctx context.Context, jfUserID string, opts ListOpts) (*Li
 		Total:      result.TotalCount,
 		NextCursor: nextCursor,
 	}, nil
+}
+
+func (s *Service) Search(ctx context.Context, query string) ([]Item, error) {
+	results, err := s.seerr.Search(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("Search: %w", err)
+	}
+	items := make([]Item, len(results))
+	for i, r := range results {
+		items[i] = toSearchItem(r)
+	}
+	return items, nil
+}
+
+func (s *Service) RequestMovie(ctx context.Context, catalogID string) error {
+	tmdbID, ok := parseTmdbMovieID(catalogID)
+	if !ok {
+		return ErrNotRequestable
+	}
+	if err := s.seerr.RequestMovie(ctx, tmdbID); err != nil {
+		return fmt.Errorf("RequestMovie: %w", err)
+	}
+	return nil
+}
+
+func parseTmdbMovieID(catalogID string) (int, bool) {
+	parts := strings.SplitN(catalogID, ":", 3)
+	if len(parts) != 3 || parts[0] != "tmdb" || parts[1] != string(TypeMovie) {
+		return 0, false
+	}
+	id, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, false
+	}
+	return id, true
 }
