@@ -11,6 +11,7 @@ import (
 	"github.com/Stoganet/api-proxy/internal/auth"
 	"github.com/Stoganet/api-proxy/internal/gen"
 	"github.com/Stoganet/api-proxy/internal/media"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -44,8 +45,11 @@ type Server struct {
 func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL string, logger *slog.Logger) stdhttp.Handler {
 	s := &Server{auth: authSvc, library: libSvc, logger: logger}
 
+	rateLimitMW, authedRateLimit := rateLimitStrictMiddleware()
+
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
 		jwtStrictMiddleware(authSvc),
+		rateLimitMW,
 	}, gen.StrictHTTPServerOptions{
 		ResponseErrorHandlerFunc: func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
 			s.logger.ErrorContext(r.Context(), "handler error", "err", err, "request_id", requestIDFromCtx(r.Context()))
@@ -60,17 +64,13 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL str
 	})
 
 	mux := stdhttp.NewServeMux()
-	mux.Handle("GET /stream/{jfId}", requireJWT(authSvc, newStreamHandler(authSvc, jellyfinBaseURL, logger)))
+	mux.Handle("GET /stream/{jfId}", authedRateLimit(requireJWT(authSvc, newStreamHandler(authSvc, jellyfinBaseURL, logger))))
 	mux.Handle("/", gen.Handler(strict))
 
-	return RequestID(Logging(logger)(mux))
+	return stripUntrustedForwardedFor(middleware.ClientIPFromXFF()(RequestID(Logging(logger)(mux))))
 }
 
-// jwtStrictMiddleware enforces Bearer JWT auth on all endpoints except the
-// public auth and healthz operations. Writes 401 directly and returns nil to
-// prevent the strict handler from writing a second response.
 func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
-	// public lists operations that do NOT require a JWT.
 	public := map[string]bool{
 		"GetHealthz":                true,
 		"PostAuthLogin":             true,
@@ -96,7 +96,7 @@ func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {
 					code = gen.TokenExpired
 				}
 				writeError(w, r, stdhttp.StatusUnauthorized, code, "invalid or expired token")
-				return nil, nil //nolint:nilerr // error handled by writing 401 directly
+				return nil, nil //nolint:nilerr
 			}
 			ctx = context.WithValue(ctx, ctxUserID, claims.UserID)
 			ctx = context.WithValue(ctx, ctxJFUserID, claims.JFUserID)
