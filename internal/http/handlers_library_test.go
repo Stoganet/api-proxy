@@ -23,6 +23,11 @@ type fakeLibrary struct {
 	episodes    []media.Episode
 	episodesErr error
 	progressErr error
+	searchItems []media.Item
+	searchErr   error
+	requestErr  error
+	capturedID  string
+	capturedQ   string
 }
 
 func (f *fakeLibrary) GetItem(_ context.Context, _, _ string) (*media.Detail, error) {
@@ -39,6 +44,14 @@ func (f *fakeLibrary) GetEpisodes(_ context.Context, _, _ string, _ int) ([]medi
 }
 func (f *fakeLibrary) ReportProgress(_ context.Context, _, _ string, _ int64, _ bool) error {
 	return f.progressErr
+}
+func (f *fakeLibrary) Search(_ context.Context, query string) ([]media.Item, error) {
+	f.capturedQ = query
+	return f.searchItems, f.searchErr
+}
+func (f *fakeLibrary) RequestMovie(_ context.Context, catalogID string) error {
+	f.capturedID = catalogID
+	return f.requestErr
 }
 
 func newLibraryServer(t *testing.T, fa *fakeAuth, fc *fakeLibrary) http.Handler {

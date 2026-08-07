@@ -10,10 +10,11 @@ import (
 type envMap map[string]string
 
 // Config holds all runtime configuration for the auth surface.
-// Future phases will extend this with Sonarr/Radarr/qBit/Jellyseerr/TMDB fields.
 type Config struct {
 	JellyfinURL    string
 	JellyfinAPIKey string
+	SeerrURL       string
+	SeerrAPIKey    string
 	JWTSigningKey  []byte
 	DBPath         string
 	ListenAddr     string
@@ -33,6 +34,8 @@ func Load(override envMap) (*Config, error) {
 	required := []string{
 		"JELLYFIN_URL",
 		"JELLYFIN_API_KEY",
+		"SEERR_URL",
+		"SEERR_API_KEY",
 		"JWT_SIGNING_KEY",
 		"DB_PATH",
 		"LISTEN_ADDR",
@@ -56,6 +59,9 @@ func Load(override envMap) (*Config, error) {
 	if err := validateURL("JELLYFIN_URL", get("JELLYFIN_URL")); err != nil {
 		return nil, err
 	}
+	if err := validateURL("SEERR_URL", get("SEERR_URL")); err != nil {
+		return nil, err
+	}
 	if err := validateURL("PROXY_BASE_URL", get("PROXY_BASE_URL")); err != nil {
 		return nil, err
 	}
@@ -63,6 +69,8 @@ func Load(override envMap) (*Config, error) {
 	return &Config{
 		JellyfinURL:    get("JELLYFIN_URL"),
 		JellyfinAPIKey: get("JELLYFIN_API_KEY"),
+		SeerrURL:       get("SEERR_URL"),
+		SeerrAPIKey:    get("SEERR_API_KEY"),
 		JWTSigningKey:  key,
 		DBPath:         get("DB_PATH"),
 		ListenAddr:     get("LISTEN_ADDR"),

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Stoganet/api-proxy/internal/auth"
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
+	"github.com/Stoganet/api-proxy/internal/clients/seerr"
 	"github.com/Stoganet/api-proxy/internal/config"
 	"github.com/Stoganet/api-proxy/internal/db"
 	apihttp "github.com/Stoganet/api-proxy/internal/http"
@@ -37,12 +38,13 @@ func main() {
 	defer database.Close()
 
 	jfClient := jellyfin.New(cfg.JellyfinURL, cfg.JellyfinAPIKey)
+	seerrClient := seerr.New(cfg.SeerrURL, cfg.SeerrAPIKey)
 	authSvc := auth.NewService(auth.Options{
 		DB:       database,
 		Jellyfin: jellyfin.AsAuthAdapter(jfClient),
 		SignKey:  cfg.JWTSigningKey,
 	})
-	libSvc := media.NewService(jfClient, cfg.JellyfinURL, cfg.ProxyBaseURL, logger)
+	libSvc := media.NewService(jfClient, seerrClient, cfg.JellyfinURL, cfg.ProxyBaseURL, logger)
 	go func() {
 		if err := libSvc.RefreshTmdbIndex(ctx); err != nil {
 			logger.Warn("tmdb index initial build failed, will retry on timer", "err", err)

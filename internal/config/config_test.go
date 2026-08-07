@@ -16,6 +16,8 @@ func TestLoad_AllRequiredPresent(t *testing.T) {
 	env := envMap{
 		"JELLYFIN_URL":     "http://jellyfin:8096",
 		"JELLYFIN_API_KEY": "abc",
+		"SEERR_URL":        "http://seerr:5055",
+		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
 		"DB_PATH":          "/tmp/api-proxy.sqlite",
 		"LISTEN_ADDR":      ":8080",
@@ -28,6 +30,9 @@ func TestLoad_AllRequiredPresent(t *testing.T) {
 	if c.JellyfinURL != "http://jellyfin:8096" {
 		t.Errorf("got %q", c.JellyfinURL)
 	}
+	if c.SeerrURL != "http://seerr:5055" {
+		t.Errorf("got %q", c.SeerrURL)
+	}
 	if c.ProxyBaseURL != "https://api.stoganet.com" {
 		t.Errorf("got %q", c.ProxyBaseURL)
 	}
@@ -37,6 +42,8 @@ func TestLoad_MissingProxyBaseURL_ReturnsError(t *testing.T) {
 	env := envMap{
 		"JELLYFIN_URL":     "http://jellyfin:8096",
 		"JELLYFIN_API_KEY": "abc",
+		"SEERR_URL":        "http://seerr:5055",
+		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
 		"DB_PATH":          "/tmp/api-proxy.sqlite",
 		"LISTEN_ADDR":      ":8080",
@@ -51,6 +58,8 @@ func TestLoad_JWTKeyTooShort(t *testing.T) {
 	env := envMap{
 		"JELLYFIN_URL":     "http://jellyfin:8096",
 		"JELLYFIN_API_KEY": "abc",
+		"SEERR_URL":        "http://seerr:5055",
+		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "short",
 		"DB_PATH":          "/tmp/api-proxy.sqlite",
 		"LISTEN_ADDR":      ":8080",
@@ -64,6 +73,7 @@ func TestLoad_JWTKeyTooShort(t *testing.T) {
 func TestLoad_InvalidURLs(t *testing.T) {
 	base := envMap{
 		"JELLYFIN_API_KEY": "abc",
+		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
 		"DB_PATH":          "/tmp/api-proxy.sqlite",
 		"LISTEN_ADDR":      ":8080",
@@ -76,6 +86,8 @@ func TestLoad_InvalidURLs(t *testing.T) {
 	}{
 		{"jellyfin relative path", "JELLYFIN_URL", "/not/absolute"},
 		{"jellyfin no scheme", "JELLYFIN_URL", "jellyfin:8096"},
+		{"seerr relative path", "SEERR_URL", "/not/absolute"},
+		{"seerr no scheme", "SEERR_URL", "seerr:5055"},
 		{"proxy relative path", "PROXY_BASE_URL", "/not/absolute"},
 		{"proxy no scheme", "PROXY_BASE_URL", "api.stoganet.com"},
 	}
@@ -87,6 +99,7 @@ func TestLoad_InvalidURLs(t *testing.T) {
 				env[k] = v
 			}
 			env["JELLYFIN_URL"] = "http://jellyfin:8096"
+			env["SEERR_URL"] = "http://seerr:5055"
 			env["PROXY_BASE_URL"] = "https://api.stoganet.com"
 			env[tc.key] = tc.val
 
