@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -55,6 +56,49 @@ func TestSearch_SendsQueryAndAPIKey(t *testing.T) {
 	}
 	if r.MediaInfo != nil {
 		t.Errorf("expected nil MediaInfo when absent, got %+v", r.MediaInfo)
+	}
+}
+
+func TestSearch_EncodesQueryParam(t *testing.T) {
+	tests := []struct {
+		name       string
+		query      string
+		wantRaw    string
+		wantDecode string
+	}{
+		{"space", "the m", "query=the%20m", "the m"},
+		{"multiple spaces", "the matrix reloaded", "query=the%20matrix%20reloaded", "the matrix reloaded"},
+		{"ampersand", "tom & jerry", "query=tom%20%26%20jerry", "tom & jerry"},
+		{"equals", "a=b", "query=a%3Db", "a=b"},
+		{"hash", "a#b", "query=a%23b", "a#b"},
+		{"question mark", "a?b", "query=a%3Fb", "a?b"},
+		{"literal plus", "a+b", "query=a%2Bb", "a+b"},
+		{"slash", "a/b", "query=a%2Fb", "a/b"},
+		{"no special chars", "matrix", "query=matrix", "matrix"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotRaw string
+			c := newSeerrClient(t, func(w http.ResponseWriter, r *http.Request) {
+				gotRaw = r.URL.RawQuery
+				if got := r.URL.Query().Get("query"); got != tt.wantDecode {
+					t.Errorf("decoded query: got %q, want %q", got, tt.wantDecode)
+				}
+				if strings.Contains(gotRaw, "+") {
+					t.Errorf("raw query contains unescaped '+': %q", gotRaw)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"results": []map[string]any{}})
+			})
+
+			_, err := c.Search(context.Background(), tt.query)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if gotRaw != tt.wantRaw {
+				t.Errorf("raw query: got %q, want %q", gotRaw, tt.wantRaw)
+			}
+		})
 	}
 }
 

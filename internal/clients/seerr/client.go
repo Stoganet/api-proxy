@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -62,7 +63,9 @@ func (c *Client) Search(ctx context.Context, query string) ([]SearchResult, erro
 	}
 	q := req.URL.Query()
 	q.Set("query", query)
-	req.URL.RawQuery = q.Encode()
+	// Seerr rejects '+' for space, but Encode() always uses it. A literal '+' in the input
+	// is escaped to '%2B' by Encode(), so the remaining '+' only ever means space.
+	req.URL.RawQuery = strings.ReplaceAll(q.Encode(), "+", "%20")
 	req.Header.Set("X-Api-Key", c.apiKey)
 
 	resp, err := c.hc.Do(req)
