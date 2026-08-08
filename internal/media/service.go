@@ -36,6 +36,7 @@ type JellyfinClient interface {
 type SeerrClient interface {
 	Search(ctx context.Context, query string) ([]seerr.SearchResult, error)
 	RequestMovie(ctx context.Context, tmdbID int) error
+	GetMovie(ctx context.Context, tmdbID int) (*seerr.MovieDetails, error)
 }
 
 type Service struct {
@@ -112,12 +113,29 @@ func (s *Service) StartTmdbIndexRefresher(ctx context.Context) {
 func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Detail, error) {
 	item, err := s.resolveItem(ctx, jfUserID, catalogID)
 	if err != nil {
+		if errors.Is(err, ErrItemNotFound) {
+			if tmdbID, ok := parseTmdbMovieID(catalogID); ok {
+				return s.getRequestableMovie(ctx, tmdbID)
+			}
+		}
 		return nil, err
 	}
 	if item.Type == jellyfin.ItemTypeSeries {
 		return s.getSeriesDetail(ctx, jfUserID, *item)
 	}
 	d := toDetail(*item, s.baseURL, s.proxyBaseURL)
+	return &d, nil
+}
+
+func (s *Service) getRequestableMovie(ctx context.Context, tmdbID int) (*Detail, error) {
+	md, err := s.seerr.GetMovie(ctx, tmdbID)
+	if err != nil {
+		if errors.Is(err, seerr.ErrMovieNotFound) {
+			return nil, ErrItemNotFound
+		}
+		return nil, fmt.Errorf("getRequestableMovie: %w", err)
+	}
+	d := toDetailFromSeerr(*md)
 	return &d, nil
 }
 

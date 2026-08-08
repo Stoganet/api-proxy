@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -50,6 +52,71 @@ type SearchResult struct {
 	BackdropPath string
 	ReleaseDate  string
 	MediaInfo    *MediaInfo
+}
+
+var ErrMovieNotFound = errors.New("seerr: movie not found")
+
+type MovieDetails struct {
+	TmdbID       int
+	Title        string
+	Overview     string
+	PosterPath   string
+	BackdropPath string
+	ReleaseDate  string
+	MediaInfo    *MediaInfo
+}
+
+func (c *Client) GetMovie(ctx context.Context, tmdbID int) (*MovieDetails, error) {
+	raw, err := url.JoinPath(c.baseURL, "api", "v1", "movie", strconv.Itoa(tmdbID))
+	if err != nil {
+		return nil, fmt.Errorf("seerr GetMovie: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Api-Key", c.apiKey)
+
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("seerr GetMovie: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrMovieNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("seerr GetMovie: unexpected status %d", resp.StatusCode)
+	}
+
+	var decoded struct {
+		ID           int    `json:"id"`
+		Title        string `json:"title"`
+		Overview     string `json:"overview"`
+		PosterPath   string `json:"posterPath"`
+		BackdropPath string `json:"backdropPath"`
+		ReleaseDate  string `json:"releaseDate"`
+		MediaInfo    *struct {
+			Status Status `json:"status"`
+		} `json:"mediaInfo"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
+		return nil, fmt.Errorf("seerr GetMovie: decode: %w", err)
+	}
+
+	md := &MovieDetails{
+		TmdbID:       decoded.ID,
+		Title:        decoded.Title,
+		Overview:     decoded.Overview,
+		PosterPath:   decoded.PosterPath,
+		BackdropPath: decoded.BackdropPath,
+		ReleaseDate:  decoded.ReleaseDate,
+	}
+	if decoded.MediaInfo != nil {
+		md.MediaInfo = &MediaInfo{Status: decoded.MediaInfo.Status}
+	}
+	return md, nil
 }
 
 func (c *Client) Search(ctx context.Context, query string) ([]SearchResult, error) {

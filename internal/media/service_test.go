@@ -17,6 +17,8 @@ type fakeSeerr struct {
 	capturedQuery   string
 	capturedTmdbID  int
 	requestMovieErr error
+	movieDetails    *seerr.MovieDetails
+	getMovieErr     error
 }
 
 func (f *fakeSeerr) Search(_ context.Context, query string) ([]seerr.SearchResult, error) {
@@ -27,6 +29,11 @@ func (f *fakeSeerr) Search(_ context.Context, query string) ([]seerr.SearchResul
 func (f *fakeSeerr) RequestMovie(_ context.Context, tmdbID int) error {
 	f.capturedTmdbID = tmdbID
 	return f.requestMovieErr
+}
+
+func (f *fakeSeerr) GetMovie(_ context.Context, tmdbID int) (*seerr.MovieDetails, error) {
+	f.capturedTmdbID = tmdbID
+	return f.movieDetails, f.getMovieErr
 }
 
 type fakeJF struct {
@@ -150,12 +157,67 @@ func TestService_GetItem_TMDBPrefix_MatchesCorrectItem_NotFirstIndexEntry(t *tes
 }
 
 func TestService_GetItem_TMDBPrefix_NotInIndex_ReturnsNotFound(t *testing.T) {
-	svc := newSvc(&fakeJF{})
+	sr := &fakeSeerr{getMovieErr: seerr.ErrMovieNotFound}
+	svc := NewService(&fakeJF{}, sr, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
 	svc.tmdbIndex.Store(&map[string]string{})
 
 	_, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:999")
 	if !errors.Is(err, ErrItemNotFound) {
 		t.Fatalf("want ErrItemNotFound, got %v", err)
+	}
+}
+
+func TestService_GetItem_TMDBPrefix_NotInIndex_FallsBackToSeerr(t *testing.T) {
+	sr := &fakeSeerr{movieDetails: &seerr.MovieDetails{
+		TmdbID:      999,
+		Title:       "Requestable Movie",
+		Overview:    "not in jellyfin yet",
+		PosterPath:  "/poster.jpg",
+		ReleaseDate: "2020-05-01",
+	}}
+	svc := NewService(&fakeJF{}, sr, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc.tmdbIndex.Store(&map[string]string{})
+
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:999")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sr.capturedTmdbID != 999 {
+		t.Errorf("capturedTmdbID: got %d, want 999", sr.capturedTmdbID)
+	}
+	if d.ID != "tmdb:movie:999" || d.Title != "Requestable Movie" || d.State != StateRequestable {
+		t.Errorf("detail: %+v", d)
+	}
+	if d.Play != nil {
+		t.Errorf("Play: want nil, got %+v", d.Play)
+	}
+	if d.Year != 2020 {
+		t.Errorf("Year: got %d, want 2020", d.Year)
+	}
+}
+
+func TestService_GetItem_TMDBPrefix_TV_NotInIndex_NoSeerrFallback(t *testing.T) {
+	sr := &fakeSeerr{}
+	svc := NewService(&fakeJF{}, sr, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc.tmdbIndex.Store(&map[string]string{})
+
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:tv:999")
+	if !errors.Is(err, ErrItemNotFound) {
+		t.Fatalf("want ErrItemNotFound, got %v", err)
+	}
+	if sr.capturedTmdbID != 0 {
+		t.Errorf("seerr GetMovie should not be called for tv IDs, capturedTmdbID: %d", sr.capturedTmdbID)
+	}
+}
+
+func TestService_GetItem_TMDBPrefix_NotInIndex_SeerrErrorPropagates(t *testing.T) {
+	sr := &fakeSeerr{getMovieErr: fmt.Errorf("seerr unreachable")}
+	svc := NewService(&fakeJF{}, sr, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
+	svc.tmdbIndex.Store(&map[string]string{})
+
+	_, err := svc.GetItem(context.Background(), "jf-user-1", "tmdb:movie:999")
+	if err == nil || errors.Is(err, ErrItemNotFound) {
+		t.Fatalf("want non-ErrItemNotFound error, got %v", err)
 	}
 }
 

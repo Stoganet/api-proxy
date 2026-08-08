@@ -178,6 +178,30 @@ func backdrop(jf jellyfin.Item, baseURL string) string {
 	return joinURL(baseURL, "Items", jf.ID, "Images", "Backdrop", "0")
 }
 
+func toDetailFromSeerr(md seerr.MovieDetails) Detail {
+	poster := ""
+	if md.PosterPath != "" {
+		poster = tmdbImageBaseURL + md.PosterPath
+	}
+	backdrop := ""
+	if md.BackdropPath != "" {
+		backdrop = tmdbImageBaseURL + md.BackdropPath
+	}
+	return Detail{
+		Item: Item{
+			ID:       fmt.Sprintf("tmdb:movie:%d", md.TmdbID),
+			Title:    md.Title,
+			Year:     yearFromReleaseDate(md.ReleaseDate),
+			Type:     TypeMovie,
+			Poster:   poster,
+			Backdrop: backdrop,
+			Overview: md.Overview,
+			State:    StateRequestable,
+		},
+		Seasons: []Season{},
+	}
+}
+
 func toSearchItem(sr seerr.SearchResult) Item {
 	poster := ""
 	if sr.PosterPath != "" {
