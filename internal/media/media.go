@@ -39,7 +39,18 @@ type Detail struct {
 }
 
 type PlayInfo struct {
-	StreamURL string
+	StreamURL      string
+	SubtitleTracks []SubtitleTrack
+}
+
+type SubtitleTrack struct {
+	Index      int
+	Language   string
+	Title      string
+	Codec      string
+	IsDefault  bool
+	IsForced   bool
+	IsExternal bool
 }
 
 type Season struct {

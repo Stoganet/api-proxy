@@ -65,6 +65,7 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL str
 
 	mux := stdhttp.NewServeMux()
 	mux.Handle("GET /stream/{jfId}", authedRateLimit(requireJWT(authSvc, newStreamHandler(authSvc, jellyfinBaseURL, logger))))
+	mux.Handle("GET /stream/{jfId}/subtitles/{index}", authedRateLimit(requireJWT(authSvc, newSubtitleHandler(authSvc, jellyfinBaseURL, logger))))
 	mux.Handle("/", gen.Handler(strict))
 
 	return stripUntrustedForwardedFor(middleware.ClientIPFromXFF()(RequestID(Logging(logger)(mux))))

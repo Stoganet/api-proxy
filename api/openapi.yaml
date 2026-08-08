@@ -93,9 +93,22 @@ components:
 
     PlayInfo:
       type: object
-      required: [stream_url]
+      required: [stream_url, subtitle_tracks]
       properties:
-        stream_url: { type: string }
+        stream_url:      { type: string }
+        subtitle_tracks: { type: array, items: { $ref: '#/components/schemas/SubtitleTrack' } }
+
+    SubtitleTrack:
+      type: object
+      required: [index, language, title, codec, is_default, is_forced, is_external]
+      properties:
+        index:       { type: integer }
+        language:    { type: string }
+        title:       { type: string }
+        codec:       { type: string }
+        is_default:  { type: boolean }
+        is_forced:   { type: boolean }
+        is_external: { type: boolean }
 
     CastMember:
       type: object
@@ -378,6 +391,49 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '404':
           description: Item not found in Jellyfin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          description: Jellyfin returned an error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /stream/{jfId}/subtitles/{index}:
+    get:
+      summary: Stream a text subtitle track (WebVTT) for a Jellyfin item
+      description: |
+        Proxies a WebVTT subtitle stream from Jellyfin, converting the source format
+        (SRT, ASS, etc.) on the fly. Implemented outside the oapi-codegen strict server
+        (binary, not JSON) and wired directly on the mux, same as `/stream/{jfId}`.
+        The `index` value comes from `PlayInfo.subtitle_tracks[].index`.
+      operationId: getStreamJfIdSubtitlesIndex
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: jfId
+          in: path
+          required: true
+          schema: { type: string }
+          description: Jellyfin item UUID (no prefix)
+        - name: index
+          in: path
+          required: true
+          schema: { type: integer }
+          description: Subtitle track index, from PlayInfo.subtitle_tracks[].index
+      responses:
+        '200':
+          description: WebVTT subtitle content
+          content:
+            text/vtt:
+              schema: { type: string, format: binary }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Item or subtitle track not found in Jellyfin
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

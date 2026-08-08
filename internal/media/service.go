@@ -31,6 +31,7 @@ type JellyfinClient interface {
 	GetNextUp(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
 	GetFirstEpisode(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
 	SetUserData(ctx context.Context, userID, itemID string, positionMS int64, played bool) error
+	GetSubtitleTracks(ctx context.Context, userID, itemID string) ([]jellyfin.SubtitleTrack, error)
 }
 
 type SeerrClient interface {
@@ -123,7 +124,11 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 	if item.Type == jellyfin.ItemTypeSeries {
 		return s.getSeriesDetail(ctx, jfUserID, *item)
 	}
-	d := toDetail(*item, s.baseURL, s.proxyBaseURL)
+	tracks, err := s.jf.GetSubtitleTracks(ctx, jfUserID, item.ID)
+	if err != nil {
+		s.logger.Warn("GetItem: subtitle tracks fetch failed", "item", item.ID, "err", err)
+	}
+	d := toDetail(*item, tracks, s.baseURL, s.proxyBaseURL)
 	return &d, nil
 }
 

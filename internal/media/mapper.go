@@ -24,6 +24,22 @@ const (
 	ticksPerMS     = 10_000
 )
 
+func toSubtitleTracks(jf []jellyfin.SubtitleTrack) []SubtitleTrack {
+	tracks := make([]SubtitleTrack, len(jf))
+	for i, t := range jf {
+		tracks[i] = SubtitleTrack{
+			Index:      t.Index,
+			Language:   t.Language,
+			Title:      t.Title,
+			Codec:      t.Codec,
+			IsDefault:  t.IsDefault,
+			IsForced:   t.IsForced,
+			IsExternal: t.IsExternal,
+		}
+	}
+	return tracks
+}
+
 func toItem(jf jellyfin.Item, baseURL string) Item {
 	return Item{
 		ID:       itemID(jf),
@@ -37,7 +53,7 @@ func toItem(jf jellyfin.Item, baseURL string) Item {
 	}
 }
 
-func toDetail(jf jellyfin.Item, jellyfinBaseURL, proxyBaseURL string) Detail {
+func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, jellyfinBaseURL, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
@@ -47,12 +63,15 @@ func toDetail(jf jellyfin.Item, jellyfinBaseURL, proxyBaseURL string) Detail {
 		runtime = int(jf.Runtime / ticksPerMinute)
 	}
 	return Detail{
-		Item:     toItem(jf, jellyfinBaseURL),
-		Genres:   jf.Genres,
-		Runtime:  runtime,
-		Cast:     cast,
-		Seasons:  []Season{},
-		Play:     &PlayInfo{StreamURL: joinURL(proxyBaseURL, "stream", jf.ID)},
+		Item:    toItem(jf, jellyfinBaseURL),
+		Genres:  jf.Genres,
+		Runtime: runtime,
+		Cast:    cast,
+		Seasons: []Season{},
+		Play: &PlayInfo{
+			StreamURL:      joinURL(proxyBaseURL, "stream", jf.ID),
+			SubtitleTracks: toSubtitleTracks(subtitleTracks),
+		},
 		Progress: toWatchProgress(jf.UserData),
 	}
 }
@@ -103,6 +122,10 @@ func toSeason(jf jellyfin.Season, jellyfinBaseURL string) Season {
 	}
 }
 
+// toEpisode intentionally leaves PlayInfo.SubtitleTracks empty: populating it would mean an
+// extra Jellyfin PlaybackInfo call per episode in a season list, for episodes that may never
+// be played. Subtitle tracks are only fetched for the item actually being detailed/played
+// (see Service.GetItem's movie path).
 func toEpisode(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Episode {
 	runtime := 0
 	if jf.RunTimeTicks > 0 {
@@ -136,6 +159,7 @@ func toWatchProgress(ud jellyfin.UserData) *WatchProgress {
 	}
 }
 
+// toResumeInfo also leaves PlayInfo.SubtitleTracks empty; same reasoning as toEpisode.
 func toResumeInfo(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) ResumeInfo {
 	thumbnail := ""
 	if jf.PrimaryImageTag != "" {

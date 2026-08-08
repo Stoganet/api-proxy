@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/auth"
@@ -83,7 +84,7 @@ func TestGetLibraryId_Returns200WithDetail(t *testing.T) {
 	fc := &fakeLibrary{detail: &media.Detail{
 		Item: media.Item{
 			ID:    "tmdb:movie:603",
-			Title: "The Matrix",
+			Title: "Test Movie",
 			Year:  1999,
 			Type:  media.TypeMovie,
 			State: media.StatePlayable,
@@ -109,11 +110,61 @@ func TestGetLibraryId_Returns200WithDetail(t *testing.T) {
 	if resp.Id != "tmdb:movie:603" {
 		t.Errorf("ID: got %q", resp.Id)
 	}
-	if resp.Title != "The Matrix" {
+	if resp.Title != "Test Movie" {
 		t.Errorf("Title: got %q", resp.Title)
 	}
 	if resp.Runtime != 136 {
 		t.Errorf("Runtime: got %d", resp.Runtime)
+	}
+}
+
+func TestGetLibraryId_SerializesSubtitleTracks(t *testing.T) {
+	fc := &fakeLibrary{detail: &media.Detail{
+		Item:    media.Item{ID: "tmdb:movie:603", Title: "Test Movie", Type: media.TypeMovie, State: media.StatePlayable},
+		Seasons: []media.Season{},
+		Play: &media.PlayInfo{
+			StreamURL: "https://api.stoganet.com/stream/jf-abc",
+			SubtitleTracks: []media.SubtitleTrack{
+				{Index: 2, Language: "eng", Title: "English", Codec: "subrip", IsDefault: true, IsForced: false, IsExternal: true},
+			},
+		},
+	}}
+
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/tmdb:movie:603")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200. body: %s", w.Code, w.Body.String())
+	}
+	var resp gen.LibraryDetail
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Play == nil || len(resp.Play.SubtitleTracks) != 1 {
+		t.Fatalf("SubtitleTracks: got %+v", resp.Play)
+	}
+	track := resp.Play.SubtitleTracks[0]
+	if track.Index != 2 || track.Language != "eng" || track.Title != "English" || track.Codec != "subrip" ||
+		!track.IsDefault || track.IsForced || !track.IsExternal {
+		t.Errorf("track: got %+v", track)
+	}
+}
+
+func TestGetLibraryId_NoSubtitleTracks_SerializesEmptyArray(t *testing.T) {
+	fc := &fakeLibrary{detail: &media.Detail{
+		Item:    media.Item{ID: "tmdb:movie:603", Title: "Test Movie", Type: media.TypeMovie, State: media.StatePlayable},
+		Seasons: []media.Season{},
+		Play:    &media.PlayInfo{StreamURL: "https://api.stoganet.com/stream/jf-abc"},
+	}}
+
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/tmdb:movie:603")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200. body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"subtitle_tracks":[]`) {
+		t.Errorf("expected empty array (not null) for subtitle_tracks, got body: %s", w.Body.String())
 	}
 }
 
@@ -236,7 +287,7 @@ func TestGetLibraryIdSeasonsSeasonNumberEpisodes_UpstreamError_Returns503(t *tes
 func TestGetLibraryId_SeriesDetail_HasSeasonsAndResume(t *testing.T) {
 	fc := &fakeLibrary{detail: &media.Detail{
 		Item: media.Item{
-			ID: "tmdb:tv:1396", Title: "Breaking Bad",
+			ID: "tmdb:tv:1396", Title: "Test Show",
 			Year: 2008, Type: media.TypeTV, State: media.StatePlayable,
 		},
 		Runtime: 0,
@@ -276,7 +327,7 @@ func TestGetLibraryId_SeriesDetail_HasSeasonsAndResume(t *testing.T) {
 func TestGetLibraryId_SeriesDetail_HasStart(t *testing.T) {
 	fc := &fakeLibrary{detail: &media.Detail{
 		Item: media.Item{
-			ID: "tmdb:tv:1396", Title: "Breaking Bad",
+			ID: "tmdb:tv:1396", Title: "Test Show",
 			Year: 2008, Type: media.TypeTV, State: media.StatePlayable,
 		},
 		Genres:  []string{"Drama"},
@@ -316,7 +367,7 @@ func TestGetLibraryId_SeriesDetail_HasStart(t *testing.T) {
 func TestGetLibraryId_MovieDetail_HasPlayAndProgress(t *testing.T) {
 	fc := &fakeLibrary{detail: &media.Detail{
 		Item: media.Item{
-			ID: "tmdb:movie:603", Title: "The Matrix",
+			ID: "tmdb:movie:603", Title: "Test Movie",
 			Year: 1999, Type: media.TypeMovie, State: media.StatePlayable,
 		},
 		Runtime:  136,

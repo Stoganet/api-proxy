@@ -10,7 +10,7 @@ import (
 func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	item := jellyfin.Item{
 		ID:              "jf-abc",
-		Name:            "The Matrix",
+		Name:            "Test Movie",
 		Type:            jellyfin.ItemTypeMovie,
 		Year:            1999,
 		Overview:        "A hacker discovers reality is a simulation.",
@@ -20,12 +20,12 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		BackdropTags:    []string{"btag1"},
 		ProviderIDs:     map[string]string{"Tmdb": "603"},
 		People: []jellyfin.Person{
-			{Name: "Keanu Reeves", Role: "Actor"},
-			{Name: "Lana Wachowski", Role: "Director"},
+			{Name: "Test Actor", Role: "Actor"},
+			{Name: "Test Director", Role: "Director"},
 		},
 	}
 
-	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
 
 	fields := []struct {
 		name string
@@ -33,7 +33,7 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		want any
 	}{
 		{"ID", got.ID, "tmdb:movie:603"},
-		{"Title", got.Title, "The Matrix"},
+		{"Title", got.Title, "Test Movie"},
 		{"Year", got.Year, 1999},
 		{"Type", got.Type, TypeMovie},
 		{"State", got.State, StatePlayable},
@@ -54,7 +54,7 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	if len(got.Genres) != 2 || got.Genres[0] != "Action" {
 		t.Errorf("Genres: got %v", got.Genres)
 	}
-	if len(got.Cast) != 2 || got.Cast[0].Name != "Keanu Reeves" || got.Cast[0].Role != "Actor" {
+	if len(got.Cast) != 2 || got.Cast[0].Name != "Test Actor" || got.Cast[0].Role != "Actor" {
 		t.Errorf("Cast: got %v", got.Cast)
 	}
 	if got.Play == nil {
@@ -66,6 +66,34 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	}
 }
 
+func TestToDetail_SubtitleTracks_MappedFromJellyfin(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-abc", Type: jellyfin.ItemTypeMovie}
+	tracks := []jellyfin.SubtitleTrack{
+		{Index: 2, Language: "eng", Title: "English", Codec: "subrip", IsDefault: true, IsForced: false, IsExternal: true},
+	}
+
+	got := toDetail(item, tracks, "https://jf.example.com", "https://api.stoganet.com")
+
+	if len(got.Play.SubtitleTracks) != 1 {
+		t.Fatalf("SubtitleTracks: got %d, want 1", len(got.Play.SubtitleTracks))
+	}
+	track := got.Play.SubtitleTracks[0]
+	if track.Index != 2 || track.Language != "eng" || track.Title != "English" || track.Codec != "subrip" ||
+		!track.IsDefault || track.IsForced || !track.IsExternal {
+		t.Errorf("SubtitleTracks[0]: got %+v", track)
+	}
+}
+
+func TestToDetail_NoSubtitleTracks_ReturnsEmptySlice(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-abc", Type: jellyfin.ItemTypeMovie}
+
+	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
+
+	if len(got.Play.SubtitleTracks) != 0 {
+		t.Errorf("SubtitleTracks: got %d, want 0", len(got.Play.SubtitleTracks))
+	}
+}
+
 func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 	item := jellyfin.Item{
 		ID:   "jf-xyz",
@@ -74,7 +102,7 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 		Year: 2020,
 	}
 
-	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
 
 	if got.ID != "jf:jf-xyz" {
 		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-xyz")
@@ -93,12 +121,12 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 	item := jellyfin.Item{
 		ID:          "jf-tv-1",
-		Name:        "Breaking Bad",
+		Name:        "Test Show",
 		Type:        jellyfin.ItemTypeSeries,
 		ProviderIDs: map[string]string{"Tmdb": "1396"},
 	}
 
-	got := toDetail(item, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
 
 	if got.ID != "tmdb:tv:1396" {
 		t.Errorf("ID: got %q, want %q", got.ID, "tmdb:tv:1396")
@@ -108,7 +136,7 @@ func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	item := jellyfin.Item{
 		ID:              "jf-abc",
-		Name:            "The Matrix",
+		Name:            "Test Movie",
 		Type:            jellyfin.ItemTypeMovie,
 		Year:            1999,
 		PrimaryImageTag: "tag1",
@@ -123,7 +151,7 @@ func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		want any
 	}{
 		{"ID", got.ID, "tmdb:movie:603"},
-		{"Title", got.Title, "The Matrix"},
+		{"Title", got.Title, "Test Movie"},
 		{"Year", got.Year, 1999},
 		{"Type", got.Type, TypeMovie},
 		{"State", got.State, StatePlayable},
@@ -220,11 +248,11 @@ func TestToEpisode_MapsFieldsCorrectly(t *testing.T) {
 
 func TestToDetail_Movie_HasPlayAndProgress(t *testing.T) {
 	jf := jellyfin.Item{
-		ID: "mov1", Name: "The Matrix", Type: jellyfin.ItemTypeMovie,
+		ID: "mov1", Name: "Test Movie", Type: jellyfin.ItemTypeMovie,
 		Year: 1999, Runtime: 81_600_000_000,
 		UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000, Played: false},
 	}
-	d := toDetail(jf, "http://jf.example.com", "https://api.stoganet.com")
+	d := toDetail(jf, nil, "http://jf.example.com", "https://api.stoganet.com")
 	if d.Play == nil {
 		t.Error("movie must have Play")
 	}
@@ -241,7 +269,7 @@ func TestToDetail_Movie_HasPlayAndProgress(t *testing.T) {
 
 func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
 	jf := jellyfin.Item{
-		ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries,
+		ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries,
 	}
 	seasons := []jellyfin.Season{
 		{ID: "s1", Number: 1, Name: "Season 1", Year: 2008, EpisodeCount: 7},
@@ -273,7 +301,7 @@ func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
 }
 
 func TestToSeriesDetail_NoNextUp_NilResume(t *testing.T) {
-	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
+	jf := jellyfin.Item{ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries}
 	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
 	if d.Resume != nil {
 		t.Errorf("Resume should be nil for unwatched series, got %+v", d.Resume)
@@ -281,7 +309,7 @@ func TestToSeriesDetail_NoNextUp_NilResume(t *testing.T) {
 }
 
 func TestToSeriesDetail_Start_PopulatedFromFirstEpisode(t *testing.T) {
-	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
+	jf := jellyfin.Item{ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries}
 	firstEp := &jellyfin.Episode{
 		ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1,
 		PrimaryImageTag: "tag1",
@@ -306,7 +334,7 @@ func TestToSeriesDetail_Start_PopulatedFromFirstEpisode(t *testing.T) {
 }
 
 func TestToSeriesDetail_NoFirstEpisode_NilStart(t *testing.T) {
-	jf := jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries}
+	jf := jellyfin.Item{ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries}
 	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
 	if d.Start != nil {
 		t.Errorf("Start should be nil when no firstEpisode, got %+v", d.Start)
@@ -317,7 +345,7 @@ func TestToSearchItem_BuildsCorrectShape(t *testing.T) {
 	sr := seerr.SearchResult{
 		TmdbID:       603,
 		MediaType:    "movie",
-		Title:        "The Matrix",
+		Title:        "Test Movie",
 		Overview:     "A hacker discovers reality is a simulation.",
 		PosterPath:   "/poster.jpg",
 		BackdropPath: "/backdrop.jpg",
@@ -332,7 +360,7 @@ func TestToSearchItem_BuildsCorrectShape(t *testing.T) {
 		want any
 	}{
 		{"ID", got.ID, "tmdb:movie:603"},
-		{"Title", got.Title, "The Matrix"},
+		{"Title", got.Title, "Test Movie"},
 		{"Year", got.Year, 1999},
 		{"Type", got.Type, TypeMovie},
 		{"State", got.State, StateRequestable},

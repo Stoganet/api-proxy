@@ -118,7 +118,7 @@ func toGenEpisode(ep media.Episode) gen.Episode {
 		e.Thumbnail = &ep.Thumbnail
 	}
 	if ep.Play != nil {
-		e.Play = &gen.PlayInfo{StreamUrl: ep.Play.StreamURL}
+		e.Play = &gen.PlayInfo{StreamUrl: ep.Play.StreamURL, SubtitleTracks: toGenSubtitleTracks(ep.Play.SubtitleTracks)}
 	}
 	if ep.Progress != nil {
 		e.Progress = &gen.WatchProgress{PositionMs: ep.Progress.PositionMS, Played: ep.Progress.Played}
@@ -172,7 +172,7 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 	}
 
 	if d.Play != nil {
-		detail.Play = &gen.PlayInfo{StreamUrl: d.Play.StreamURL}
+		detail.Play = &gen.PlayInfo{StreamUrl: d.Play.StreamURL, SubtitleTracks: toGenSubtitleTracks(d.Play.SubtitleTracks)}
 	}
 	if d.Progress != nil {
 		detail.Progress = &gen.WatchProgress{
@@ -186,7 +186,7 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 			EpisodeNumber: d.Resume.EpisodeNumber,
 			EpisodeId:     d.Resume.EpisodeID,
 			Title:         d.Resume.Title,
-			Play:          gen.PlayInfo{StreamUrl: d.Resume.Play.StreamURL},
+			Play:          gen.PlayInfo{StreamUrl: d.Resume.Play.StreamURL, SubtitleTracks: toGenSubtitleTracks(d.Resume.Play.SubtitleTracks)},
 			Progress:      gen.WatchProgress{PositionMs: d.Resume.Progress.PositionMS, Played: d.Resume.Progress.Played},
 		}
 		if d.Resume.Thumbnail != "" {
@@ -199,7 +199,7 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 			EpisodeNumber: d.Start.EpisodeNumber,
 			EpisodeId:     d.Start.EpisodeID,
 			Title:         d.Start.Title,
-			Play:          gen.PlayInfo{StreamUrl: d.Start.Play.StreamURL},
+			Play:          gen.PlayInfo{StreamUrl: d.Start.Play.StreamURL, SubtitleTracks: toGenSubtitleTracks(d.Start.Play.SubtitleTracks)},
 			Progress:      gen.WatchProgress{PositionMs: d.Start.Progress.PositionMS, Played: d.Start.Progress.Played},
 		}
 		if d.Start.Thumbnail != "" {
@@ -208,6 +208,22 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 	}
 
 	return detail
+}
+
+func toGenSubtitleTracks(tracks []media.SubtitleTrack) []gen.SubtitleTrack {
+	out := make([]gen.SubtitleTrack, len(tracks))
+	for i, t := range tracks {
+		out[i] = gen.SubtitleTrack{
+			Index:      t.Index,
+			Language:   t.Language,
+			Title:      t.Title,
+			Codec:      t.Codec,
+			IsDefault:  t.IsDefault,
+			IsForced:   t.IsForced,
+			IsExternal: t.IsExternal,
+		}
+	}
+	return out
 }
 
 func userIDFromCtx(ctx context.Context) string {

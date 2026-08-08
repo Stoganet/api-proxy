@@ -53,6 +53,8 @@ type fakeJF struct {
 	setUserDataErr     error
 	capturedPositionMS int64
 	capturedPlayed     bool
+	subtitleTracks     []jellyfin.SubtitleTrack
+	subtitleTracksErr  error
 }
 
 func (f *fakeJF) GetItem(_ context.Context, _, itemID string) (*jellyfin.Item, error) {
@@ -88,6 +90,11 @@ func (f *fakeJF) SetUserData(_ context.Context, _, itemID string, positionMS int
 	return f.setUserDataErr
 }
 
+func (f *fakeJF) GetSubtitleTracks(_ context.Context, _, itemID string) ([]jellyfin.SubtitleTrack, error) {
+	f.capturedItemID = itemID
+	return f.subtitleTracks, f.subtitleTracksErr
+}
+
 func newSvc(jf JellyfinClient) *Service {
 	return NewService(jf, &fakeSeerr{}, "https://jf.example.com", "https://api.stoganet.com", slog.Default())
 }
@@ -111,7 +118,7 @@ func TestService_GetItem_JFPrefix_StripsPrefix(t *testing.T) {
 func TestService_GetItem_TMDBPrefix_UsesIndex(t *testing.T) {
 	jf := &fakeJF{item: &jellyfin.Item{
 		ID:          "abc-uuid",
-		Name:        "The Matrix",
+		Name:        "Test Movie",
 		Type:        "Movie",
 		ProviderIDs: map[string]string{"Tmdb": "603"},
 	}}
@@ -377,7 +384,7 @@ func TestService_GetItem_PropagatesNotFound(t *testing.T) {
 func TestService_GetItem_ReturnsDetail(t *testing.T) {
 	jf := &fakeJF{item: &jellyfin.Item{
 		ID:          "jf-1",
-		Name:        "The Matrix",
+		Name:        "Test Movie",
 		Type:        "Movie",
 		Year:        1999,
 		ProviderIDs: map[string]string{"Tmdb": "603"},
@@ -400,7 +407,7 @@ func TestService_GetItem_Series_WithFirstEpisode_PopulatesStart(t *testing.T) {
 	jf := &fakeJF{
 		item: &jellyfin.Item{
 			ID:   "series-1",
-			Name: "Breaking Bad",
+			Name: "Test Show",
 			Type: jellyfin.ItemTypeSeries,
 		},
 		getFirstEpisode: &jellyfin.Episode{
@@ -499,6 +506,10 @@ func (f *fakeJFFunc) SetUserData(_ context.Context, _, _ string, _ int64, _ bool
 	return nil
 }
 
+func (f *fakeJFFunc) GetSubtitleTracks(_ context.Context, _, _ string) ([]jellyfin.SubtitleTrack, error) {
+	return nil, nil
+}
+
 func okSection() *jellyfin.ItemsResult {
 	return &jellyfin.ItemsResult{
 		Items:      []jellyfin.Item{{ID: "jf-1", Type: jellyfin.ItemTypeMovie}},
@@ -581,7 +592,7 @@ func TestService_Home_HasMore_FalseWhenAllReturned(t *testing.T) {
 
 func TestGetItem_Series_ReturnsSeasonsAndResume(t *testing.T) {
 	jf := &fakeJF{
-		item: &jellyfin.Item{ID: "tv1", Name: "Breaking Bad", Type: jellyfin.ItemTypeSeries},
+		item: &jellyfin.Item{ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries},
 		getSeasons: []jellyfin.Season{
 			{ID: "s1", Number: 1, Name: "Season 1", Year: 2008, EpisodeCount: 7},
 		},
@@ -610,7 +621,7 @@ func TestGetItem_Series_ReturnsSeasonsAndResume(t *testing.T) {
 func TestGetItem_Movie_HasPlayAndProgress(t *testing.T) {
 	jf := &fakeJF{
 		item: &jellyfin.Item{
-			ID: "mov1", Name: "The Matrix", Type: jellyfin.ItemTypeMovie,
+			ID: "mov1", Name: "Test Movie", Type: jellyfin.ItemTypeMovie,
 			UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000},
 		},
 	}
@@ -627,6 +638,39 @@ func TestGetItem_Movie_HasPlayAndProgress(t *testing.T) {
 	}
 	if d.Resume != nil {
 		t.Error("movie must not have Resume")
+	}
+}
+
+func TestGetItem_Movie_PopulatesSubtitleTracks(t *testing.T) {
+	jf := &fakeJF{
+		item:           &jellyfin.Item{ID: "mov1", Name: "Test Movie", Type: jellyfin.ItemTypeMovie},
+		subtitleTracks: []jellyfin.SubtitleTrack{{Index: 2, Language: "eng", Title: "English"}},
+	}
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	d, err := svc.GetItem(context.Background(), "uid", "jf:mov1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(d.Play.SubtitleTracks) != 1 || d.Play.SubtitleTracks[0].Language != "eng" {
+		t.Errorf("SubtitleTracks: got %+v", d.Play.SubtitleTracks)
+	}
+}
+
+func TestGetItem_Movie_SubtitleTracksFetchFails_DegradesGracefully(t *testing.T) {
+	jf := &fakeJF{
+		item:              &jellyfin.Item{ID: "mov1", Name: "Test Movie", Type: jellyfin.ItemTypeMovie},
+		subtitleTracksErr: errors.New("jellyfin unreachable"),
+	}
+	svc := NewService(jf, &fakeSeerr{}, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
+	d, err := svc.GetItem(context.Background(), "uid", "jf:mov1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d.Play == nil {
+		t.Fatal("Play must not be nil even when subtitle tracks fetch fails")
+	}
+	if len(d.Play.SubtitleTracks) != 0 {
+		t.Errorf("SubtitleTracks: got %+v, want empty", d.Play.SubtitleTracks)
 	}
 }
 
@@ -707,16 +751,16 @@ func TestReportProgress_ItemNotFound_ReturnsErrItemNotFound(t *testing.T) {
 
 func TestSearch_MapsResultsAndPassesQuery(t *testing.T) {
 	sr := &fakeSeerr{searchResults: []seerr.SearchResult{
-		{TmdbID: 603, Title: "The Matrix", MediaType: "movie"},
+		{TmdbID: 603, Title: "Test Movie", MediaType: "movie"},
 	}}
 	svc := NewService(&fakeJF{}, sr, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 
-	items, err := svc.Search(context.Background(), "matrix")
+	items, err := svc.Search(context.Background(), "test query")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if sr.capturedQuery != "matrix" {
-		t.Errorf("query: got %q, want %q", sr.capturedQuery, "matrix")
+	if sr.capturedQuery != "test query" {
+		t.Errorf("query: got %q, want %q", sr.capturedQuery, "test query")
 	}
 	if len(items) != 1 || items[0].ID != "tmdb:movie:603" {
 		t.Errorf("items: %+v", items)
@@ -727,7 +771,7 @@ func TestSearch_UpstreamError_Wrapped(t *testing.T) {
 	sr := &fakeSeerr{searchErr: errors.New("seerr down")}
 	svc := NewService(&fakeJF{}, sr, "http://jf.example.com", "https://api.stoganet.com", slog.Default())
 
-	_, err := svc.Search(context.Background(), "matrix")
+	_, err := svc.Search(context.Background(), "test query")
 	if err == nil {
 		t.Fatal("expected error")
 	}
