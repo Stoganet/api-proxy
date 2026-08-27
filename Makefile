@@ -1,7 +1,7 @@
 .PHONY: gen test lint build run tidy
 
 GO ?= go
-GOVERSION := $(shell awk '/^go /{print $$2}' go.mod)
+GOVERSION := $(shell awk '/^go /{print $$2}' go.mod | cut -d. -f1,2)
 
 # Runs inside a Linux container matching go.mod's version so the embedded-spec output (gzip,
 # which encodes an OS header byte per RFC 1952) is byte-identical to what CI's Linux runner

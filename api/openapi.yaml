@@ -480,8 +480,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '502':
-          description: Jellyfin returned an error
+        '503':
+          description: Jellyfin unreachable
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
