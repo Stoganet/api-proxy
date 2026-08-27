@@ -443,6 +443,49 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /images/{jfId}/{kind}:
+    get:
+      summary: Proxy a Jellyfin item image
+      description: |
+        Proxies poster/backdrop image bytes from Jellyfin. Implemented outside the
+        oapi-codegen strict server (binary, not JSON) and wired directly on the mux,
+        same as `/stream/{jfId}`. Clients never construct Jellyfin image URLs
+        themselves; the full URL comes from `Item.poster`/`.backdrop` /
+        `Episode.thumbnail`, which already point here.
+      operationId: getImagesJfIdKind
+      security: [ { BearerJWT: [] } ]
+      parameters:
+        - name: jfId
+          in: path
+          required: true
+          schema: { type: string }
+          description: Jellyfin item UUID (no prefix)
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [primary, backdrop] }
+      responses:
+        '200':
+          description: Image content
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Item not found, or unknown kind
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          description: Jellyfin returned an error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /library/{id}:
     get:
       summary: Item detail with playback handoff
