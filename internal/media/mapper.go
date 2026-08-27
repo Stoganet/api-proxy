@@ -40,20 +40,20 @@ func toSubtitleTracks(jf []jellyfin.SubtitleTrack) []SubtitleTrack {
 	return tracks
 }
 
-func toItem(jf jellyfin.Item, baseURL string) Item {
+func toItem(jf jellyfin.Item, proxyBaseURL string) Item {
 	return Item{
 		ID:       itemID(jf),
 		Title:    jf.Name,
 		Year:     jf.Year,
 		Type:     itemType(jf.Type),
-		Poster:   joinURL(baseURL, "Items", jf.ID, "Images", "Primary"),
-		Backdrop: backdrop(jf, baseURL),
+		Poster:   joinURL(proxyBaseURL, "images", jf.ID, "primary"),
+		Backdrop: backdrop(jf, proxyBaseURL),
 		Overview: jf.Overview,
 		State:    StatePlayable,
 	}
 }
 
-func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, jellyfinBaseURL, proxyBaseURL string) Detail {
+func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
@@ -63,7 +63,7 @@ func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, jellyfi
 		runtime = int(jf.Runtime / ticksPerMinute)
 	}
 	return Detail{
-		Item:    toItem(jf, jellyfinBaseURL),
+		Item:    toItem(jf, proxyBaseURL),
 		Genres:  jf.Genres,
 		Runtime: runtime,
 		Cast:    cast,
@@ -76,28 +76,28 @@ func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, jellyfi
 	}
 }
 
-func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Detail {
+func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
 	}
 	seasons := make([]Season, len(jfSeasons))
 	for i, s := range jfSeasons {
-		seasons[i] = toSeason(s, jellyfinBaseURL)
+		seasons[i] = toSeason(s, proxyBaseURL)
 	}
 	var resume *ResumeInfo
 	if nextUp != nil {
-		r := toResumeInfo(*nextUp, jellyfinBaseURL, proxyBaseURL)
+		r := toResumeInfo(*nextUp, proxyBaseURL)
 		resume = &r
 	}
 	var start *ResumeInfo
 	if firstEpisode != nil {
-		s := toResumeInfo(*firstEpisode, jellyfinBaseURL, proxyBaseURL)
+		s := toResumeInfo(*firstEpisode, proxyBaseURL)
 		s.Progress = WatchProgress{}
 		start = &s
 	}
 	return Detail{
-		Item:    toItem(jf, jellyfinBaseURL),
+		Item:    toItem(jf, proxyBaseURL),
 		Genres:  jf.Genres,
 		Runtime: 0,
 		Cast:    cast,
@@ -107,10 +107,10 @@ func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jelly
 	}
 }
 
-func toSeason(jf jellyfin.Season, jellyfinBaseURL string) Season {
+func toSeason(jf jellyfin.Season, proxyBaseURL string) Season {
 	poster := ""
 	if jf.PrimaryImageTag != "" {
-		poster = joinURL(jellyfinBaseURL, "Items", jf.ID, "Images", "Primary")
+		poster = joinURL(proxyBaseURL, "images", jf.ID, "primary")
 	}
 	return Season{
 		Number:       jf.Number,
@@ -126,14 +126,14 @@ func toSeason(jf jellyfin.Season, jellyfinBaseURL string) Season {
 // extra Jellyfin PlaybackInfo call per episode in a season list, for episodes that may never
 // be played. Subtitle tracks are only fetched for the item actually being detailed/played
 // (see Service.GetItem's movie path).
-func toEpisode(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) Episode {
+func toEpisode(jf jellyfin.Episode, proxyBaseURL string) Episode {
 	runtime := 0
 	if jf.RunTimeTicks > 0 {
 		runtime = int(jf.RunTimeTicks / ticksPerMinute)
 	}
 	thumbnail := ""
 	if jf.PrimaryImageTag != "" {
-		thumbnail = joinURL(jellyfinBaseURL, "Items", jf.ID, "Images", "Primary")
+		thumbnail = joinURL(proxyBaseURL, "images", jf.ID, "primary")
 	}
 	return Episode{
 		ID:           "jf:" + jf.ID,
@@ -160,10 +160,10 @@ func toWatchProgress(ud jellyfin.UserData) *WatchProgress {
 }
 
 // toResumeInfo also leaves PlayInfo.SubtitleTracks empty; same reasoning as toEpisode.
-func toResumeInfo(jf jellyfin.Episode, jellyfinBaseURL, proxyBaseURL string) ResumeInfo {
+func toResumeInfo(jf jellyfin.Episode, proxyBaseURL string) ResumeInfo {
 	thumbnail := ""
 	if jf.PrimaryImageTag != "" {
-		thumbnail = joinURL(jellyfinBaseURL, "Items", jf.ID, "Images", "Primary")
+		thumbnail = joinURL(proxyBaseURL, "images", jf.ID, "primary")
 	}
 	progress := toWatchProgress(jf.UserData)
 	var wp WatchProgress
@@ -195,11 +195,11 @@ func itemType(jfType jellyfin.ItemType) Type {
 	return TypeMovie
 }
 
-func backdrop(jf jellyfin.Item, baseURL string) string {
+func backdrop(jf jellyfin.Item, proxyBaseURL string) string {
 	if len(jf.BackdropTags) == 0 {
 		return ""
 	}
-	return joinURL(baseURL, "Items", jf.ID, "Images", "Backdrop", "0")
+	return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
 }
 
 func toDetailFromSeerr(md seerr.MovieDetails) Detail {

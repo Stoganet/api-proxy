@@ -36,7 +36,7 @@ func requestFrom(h http.Handler, ip string) *httptest.ResponseRecorder {
 }
 
 func TestRateLimit_AllowsUnderLimit(t *testing.T) {
-	mw, _ := newRateLimitStrictMiddleware(2, 2, 2, time.Minute)
+	mw, _, _ := newRateLimitStrictMiddleware(2, 2, 2, 2, time.Minute)
 	h := rateLimitedHandler(t, mw, "GetSearch")
 
 	for i := range 2 {
@@ -48,7 +48,7 @@ func TestRateLimit_AllowsUnderLimit(t *testing.T) {
 }
 
 func TestRateLimit_BlocksOverLimit(t *testing.T) {
-	mw, _ := newRateLimitStrictMiddleware(2, 2, 2, time.Minute)
+	mw, _, _ := newRateLimitStrictMiddleware(2, 2, 2, 2, time.Minute)
 	h := rateLimitedHandler(t, mw, "GetSearch")
 
 	for range 2 {
@@ -66,7 +66,7 @@ func TestRateLimit_BlocksOverLimit(t *testing.T) {
 }
 
 func TestRateLimit_SeparateKeysPerIP(t *testing.T) {
-	mw, _ := newRateLimitStrictMiddleware(1, 1, 1, time.Minute)
+	mw, _, _ := newRateLimitStrictMiddleware(1, 1, 1, 1, time.Minute)
 	h := rateLimitedHandler(t, mw, "GetSearch")
 
 	if w := requestFrom(h, "10.0.0.3"); w.Code != http.StatusOK {
@@ -78,7 +78,7 @@ func TestRateLimit_SeparateKeysPerIP(t *testing.T) {
 }
 
 func TestRateLimit_ExemptOperationBypassesLimit(t *testing.T) {
-	mw, _ := newRateLimitStrictMiddleware(1, 1, 1, time.Minute)
+	mw, _, _ := newRateLimitStrictMiddleware(1, 1, 1, 1, time.Minute)
 	h := rateLimitedHandler(t, mw, "GetHealthz")
 
 	for i := range 5 {
@@ -163,7 +163,7 @@ func TestRateLimitKey_FallsBackToRemoteAddr(t *testing.T) {
 }
 
 func TestRateLimit_PollOperationUsesPollTier(t *testing.T) {
-	mw, _ := newRateLimitStrictMiddleware(3, 1, 1, time.Minute)
+	mw, _, _ := newRateLimitStrictMiddleware(3, 1, 1, 1, time.Minute)
 	h := rateLimitedHandler(t, mw, "PostAuthQuickConnectPoll")
 
 	for i := range 3 {

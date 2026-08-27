@@ -45,7 +45,7 @@ type Server struct {
 func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL string, logger *slog.Logger) stdhttp.Handler {
 	s := &Server{auth: authSvc, library: libSvc, logger: logger}
 
-	rateLimitMW, authedRateLimit := rateLimitStrictMiddleware()
+	rateLimitMW, authedRateLimit, imagesRateLimit := rateLimitStrictMiddleware()
 
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{
 		jwtStrictMiddleware(authSvc),
@@ -66,6 +66,7 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL str
 	mux := stdhttp.NewServeMux()
 	mux.Handle("GET /stream/{jfId}", authedRateLimit(requireJWT(authSvc, newStreamHandler(authSvc, jellyfinBaseURL, logger))))
 	mux.Handle("GET /stream/{jfId}/subtitles/{index}", authedRateLimit(requireJWT(authSvc, newSubtitleHandler(authSvc, jellyfinBaseURL, logger))))
+	mux.Handle("GET /images/{jfId}/{kind}", imagesRateLimit(requireJWT(authSvc, newImageHandler(authSvc, jellyfinBaseURL, logger))))
 	mux.Handle("/", gen.Handler(strict))
 
 	return stripUntrustedForwardedFor(middleware.ClientIPFromXFF()(RequestID(Logging(logger)(mux))))
