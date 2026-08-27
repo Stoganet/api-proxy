@@ -1,9 +1,15 @@
 .PHONY: gen test lint build run tidy
 
 GO ?= go
+GOVERSION := $(shell awk '/^go /{print $$2}' go.mod)
 
+# Runs inside a Linux container matching go.mod's version so the embedded-spec output (gzip,
+# which encodes an OS header byte per RFC 1952) is byte-identical to what CI's Linux runner
+# produces, regardless of host OS. Running natively on macOS/Windows drifts from CI's checked-in
+# internal/gen/api.gen.go even when the spec itself hasn't changed.
 gen:
-	$(GO) tool oapi-codegen -config oapi-codegen.yaml -exclude-operation-ids getStreamJfId,getStreamJfIdSubtitlesIndex,getImagesJfIdKind api/openapi.yaml
+	docker run --rm -v "$(CURDIR)":/app -w /app golang:$(GOVERSION) \
+		go tool oapi-codegen -config oapi-codegen.yaml -exclude-operation-ids getStreamJfId,getStreamJfIdSubtitlesIndex,getImagesJfIdKind api/openapi.yaml
 
 test:
 	$(GO) test -race -count=1 ./...
