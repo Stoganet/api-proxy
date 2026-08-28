@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"net/url"
@@ -14,7 +15,11 @@ import (
 func newImageHandler(authSvc authService, jellyfinBaseURL string, logger *slog.Logger) stdhttp.Handler {
 	proxy := newProxyHandler("images", authSvc, logger, func(r *stdhttp.Request, jfToken string) (*url.URL, error) {
 		jfID := r.PathValue("jfId")
-		jfPath := imageJfPath(r.PathValue("kind"), jfID)
+		kind := r.PathValue("kind")
+		jfPath, ok := imageJfPath(kind, jfID)
+		if !ok {
+			return nil, fmt.Errorf("unknown image kind %q", kind)
+		}
 
 		raw, err := url.JoinPath(jellyfinBaseURL, jfPath...)
 		if err != nil {
@@ -40,9 +45,13 @@ func newImageHandler(authSvc authService, jellyfinBaseURL string, logger *slog.L
 	})
 }
 
-func imageJfPath(kind, jfID string) []string {
-	if kind == "backdrop" {
-		return []string{"Items", jfID, "Images", "Backdrop", "0"}
+func imageJfPath(kind, jfID string) ([]string, bool) {
+	switch kind {
+	case "primary":
+		return []string{"Items", jfID, "Images", "Primary"}, true
+	case "backdrop":
+		return []string{"Items", jfID, "Images", "Backdrop", "0"}, true
+	default:
+		return nil, false
 	}
-	return []string{"Items", jfID, "Images", "Primary"}
 }

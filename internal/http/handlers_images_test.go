@@ -188,3 +188,28 @@ func TestImages_JellyfinNotFound_Returns404WithEmptyBody(t *testing.T) {
 		t.Errorf("jellyfin error body must not reach client, got %q", body)
 	}
 }
+
+func TestImageJfPath(t *testing.T) {
+	tests := []struct {
+		kind    string
+		wantOK  bool
+		wantLen int
+	}{
+		{"primary", true, 4},
+		{"backdrop", true, 5},
+		{"thumbnail", false, 0},
+		{"", false, 0},
+	}
+	for _, tt := range tests {
+		path, ok := imageJfPath(tt.kind, "abc123")
+		if ok != tt.wantOK {
+			t.Errorf("imageJfPath(%q): ok = %v, want %v", tt.kind, ok, tt.wantOK)
+		}
+		if ok && len(path) != tt.wantLen {
+			t.Errorf("imageJfPath(%q): path = %v, want length %d", tt.kind, path, tt.wantLen)
+		}
+		if !ok && path != nil {
+			t.Errorf("imageJfPath(%q): path = %v, want nil on failure", tt.kind, path)
+		}
+	}
+}
