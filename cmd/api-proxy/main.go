@@ -44,7 +44,7 @@ func main() {
 		Jellyfin: jellyfin.AsAuthAdapter(jfClient),
 		SignKey:  cfg.JWTSigningKey,
 	})
-	libSvc := media.NewService(jfClient, seerrClient, cfg.JellyfinURL, cfg.ProxyBaseURL, logger)
+	libSvc := media.NewService(jfClient, seerrClient, cfg.ProxyBaseURL, logger)
 	go func() {
 		if err := libSvc.RefreshTmdbIndex(ctx); err != nil {
 			logger.Warn("tmdb index initial build failed, will retry on timer", "err", err)

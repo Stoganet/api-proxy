@@ -55,15 +55,19 @@ func fromTraefik(r *stdhttp.Request) bool {
 	return false
 }
 
-func rateLimitStrictMiddleware() (gen.StrictMiddlewareFunc, func(stdhttp.Handler) stdhttp.Handler) {
-	return newRateLimitStrictMiddleware(30, 15, 60, time.Minute)
+func rateLimitStrictMiddleware() (gen.StrictMiddlewareFunc, func(stdhttp.Handler) stdhttp.Handler, func(stdhttp.Handler) stdhttp.Handler) {
+	return newRateLimitStrictMiddleware(30, 15, 60, 600, time.Minute)
 }
 
-func newRateLimitStrictMiddleware(pollN, unauthN, authedN int, window time.Duration) (gen.StrictMiddlewareFunc, func(stdhttp.Handler) stdhttp.Handler) {
+func newRateLimitStrictMiddleware(
+	pollN, unauthN, authedN, imagesN int,
+	window time.Duration,
+) (gen.StrictMiddlewareFunc, func(stdhttp.Handler) stdhttp.Handler, func(stdhttp.Handler) stdhttp.Handler) {
 	opts := []httprate.Option{httprate.WithLimitHandler(rateLimitedResponse)}
 	pollLimit := httprate.LimitBy(pollN, window, rateLimitKey, opts...)
 	unauthLimit := httprate.LimitBy(unauthN, window, rateLimitKey, opts...)
 	authedLimit := httprate.LimitBy(authedN, window, rateLimitKey, opts...)
+	imagesLimit := httprate.LimitBy(imagesN, window, rateLimitKey, opts...)
 
 	exempt := map[string]bool{
 		"GetHealthz": true,
@@ -108,5 +112,5 @@ func newRateLimitStrictMiddleware(pollN, unauthN, authedN int, window time.Durat
 		}
 	}
 
-	return mw, authedLimit
+	return mw, authedLimit, imagesLimit
 }

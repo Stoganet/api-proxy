@@ -43,14 +43,13 @@ type SeerrClient interface {
 type Service struct {
 	jf           JellyfinClient
 	seerr        SeerrClient
-	baseURL      string
 	proxyBaseURL string
 	logger       *slog.Logger
 	tmdbIndex    atomic.Pointer[map[string]string]
 }
 
-func NewService(jf JellyfinClient, sr SeerrClient, jellyfinBaseURL, proxyBaseURL string, logger *slog.Logger) *Service {
-	return &Service{jf: jf, seerr: sr, baseURL: jellyfinBaseURL, proxyBaseURL: proxyBaseURL, logger: logger}
+func NewService(jf JellyfinClient, sr SeerrClient, proxyBaseURL string, logger *slog.Logger) *Service {
+	return &Service{jf: jf, seerr: sr, proxyBaseURL: proxyBaseURL, logger: logger}
 }
 
 func (s *Service) RefreshTmdbIndex(ctx context.Context) error {
@@ -128,7 +127,7 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 	if err != nil {
 		s.logger.Warn("GetItem: subtitle tracks fetch failed", "item", item.ID, "err", err)
 	}
-	d := toDetail(*item, tracks, s.baseURL, s.proxyBaseURL)
+	d := toDetail(*item, tracks, s.proxyBaseURL)
 	return &d, nil
 }
 
@@ -188,7 +187,7 @@ func (s *Service) getSeriesDetail(ctx context.Context, jfUserID string, item jel
 	if firstEpErr != nil {
 		return nil, fmt.Errorf("getSeriesDetail: GetFirstEpisode: %w", firstEpErr)
 	}
-	d := toSeriesDetail(item, seasons, nextUp, firstEpisode, s.baseURL, s.proxyBaseURL)
+	d := toSeriesDetail(item, seasons, nextUp, firstEpisode, s.proxyBaseURL)
 	return &d, nil
 }
 
@@ -206,7 +205,7 @@ func (s *Service) GetEpisodes(ctx context.Context, jfUserID, catalogID string, s
 	}
 	result := make([]Episode, len(episodes))
 	for i, ep := range episodes {
-		result[i] = toEpisode(ep, s.baseURL, s.proxyBaseURL)
+		result[i] = toEpisode(ep, s.proxyBaseURL)
 	}
 	return result, nil
 }
@@ -290,7 +289,7 @@ func (s *Service) Home(ctx context.Context, jfUserID string) (*HomeResult, error
 			}
 			items := make([]Item, len(res.Items))
 			for j, jfi := range res.Items {
-				items[j] = toItem(jfi, s.baseURL)
+				items[j] = toItem(jfi, s.proxyBaseURL)
 			}
 			results[i] = result{section: HomeSection{
 				ID:      def.id,
@@ -342,7 +341,7 @@ func (s *Service) List(ctx context.Context, jfUserID string, opts ListOpts) (*Li
 
 	items := make([]Item, len(result.Items))
 	for i, jfi := range result.Items {
-		items[i] = toItem(jfi, s.baseURL)
+		items[i] = toItem(jfi, s.proxyBaseURL)
 	}
 
 	nextCursor := ""

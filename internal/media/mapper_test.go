@@ -25,7 +25,7 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		},
 	}
 
-	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://api.stoganet.com")
 
 	fields := []struct {
 		name string
@@ -39,8 +39,8 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		{"State", got.State, StatePlayable},
 		{"Overview", got.Overview, "A hacker discovers reality is a simulation."},
 		{"Runtime", got.Runtime, 136},
-		{"Poster", got.Poster, "https://jf.example.com/Items/jf-abc/Images/Primary"},
-		{"Backdrop", got.Backdrop, "https://jf.example.com/Items/jf-abc/Images/Backdrop/0"},
+		{"Poster", got.Poster, "https://api.stoganet.com/images/jf-abc/primary"},
+		{"Backdrop", got.Backdrop, "https://api.stoganet.com/images/jf-abc/backdrop"},
 	}
 	for _, f := range fields {
 		if f.got != f.want {
@@ -72,7 +72,7 @@ func TestToDetail_SubtitleTracks_MappedFromJellyfin(t *testing.T) {
 		{Index: 2, Language: "eng", Title: "English", Codec: "subrip", IsDefault: true, IsForced: false, IsExternal: true},
 	}
 
-	got := toDetail(item, tracks, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, tracks, "https://api.stoganet.com")
 
 	if len(got.Play.SubtitleTracks) != 1 {
 		t.Fatalf("SubtitleTracks: got %d, want 1", len(got.Play.SubtitleTracks))
@@ -87,7 +87,7 @@ func TestToDetail_SubtitleTracks_MappedFromJellyfin(t *testing.T) {
 func TestToDetail_NoSubtitleTracks_ReturnsEmptySlice(t *testing.T) {
 	item := jellyfin.Item{ID: "jf-abc", Type: jellyfin.ItemTypeMovie}
 
-	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://api.stoganet.com")
 
 	if len(got.Play.SubtitleTracks) != 0 {
 		t.Errorf("SubtitleTracks: got %d, want 0", len(got.Play.SubtitleTracks))
@@ -102,7 +102,7 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 		Year: 2020,
 	}
 
-	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://api.stoganet.com")
 
 	if got.ID != "jf:jf-xyz" {
 		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-xyz")
@@ -126,7 +126,7 @@ func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 		ProviderIDs: map[string]string{"Tmdb": "1396"},
 	}
 
-	got := toDetail(item, nil, "https://jf.example.com", "https://api.stoganet.com")
+	got := toDetail(item, nil, "https://api.stoganet.com")
 
 	if got.ID != "tmdb:tv:1396" {
 		t.Errorf("ID: got %q, want %q", got.ID, "tmdb:tv:1396")
@@ -143,7 +143,7 @@ func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		ProviderIDs:     map[string]string{"Tmdb": "603"},
 	}
 
-	got := toItem(item, "https://jf.example.com")
+	got := toItem(item, "https://api.stoganet.com")
 
 	fields := []struct {
 		name string
@@ -155,7 +155,7 @@ func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		{"Year", got.Year, 1999},
 		{"Type", got.Type, TypeMovie},
 		{"State", got.State, StatePlayable},
-		{"Poster", got.Poster, "https://jf.example.com/Items/jf-abc/Images/Primary"},
+		{"Poster", got.Poster, "https://api.stoganet.com/images/jf-abc/primary"},
 	}
 	for _, f := range fields {
 		if f.got != f.want {
@@ -201,18 +201,18 @@ func TestToSeason_MapsFieldsCorrectly(t *testing.T) {
 		ID: "s1", Number: 2, Name: "Season 2", Year: 2009,
 		EpisodeCount: 13, PrimaryImageTag: "tag",
 	}
-	got := toSeason(jfs, "http://jf.example.com")
+	got := toSeason(jfs, "https://api.stoganet.com")
 	if got.Number != 2 || got.Name != "Season 2" || got.EpisodeCount != 13 {
 		t.Errorf("season mismatch: %+v", got)
 	}
-	if got.Poster != "http://jf.example.com/Items/s1/Images/Primary" {
+	if got.Poster != "https://api.stoganet.com/images/s1/primary" {
 		t.Errorf("poster: got %q", got.Poster)
 	}
 }
 
 func TestToSeason_NoImage_EmptyPoster(t *testing.T) {
 	jfs := jellyfin.Season{ID: "s1", Number: 1, Name: "Season 1", PrimaryImageTag: ""}
-	got := toSeason(jfs, "http://jf.example.com")
+	got := toSeason(jfs, "https://api.stoganet.com")
 	if got.Poster != "" {
 		t.Errorf("expected empty poster, got %q", got.Poster)
 	}
@@ -225,7 +225,7 @@ func TestToEpisode_MapsFieldsCorrectly(t *testing.T) {
 		PrimaryImageTag: "tag",
 		UserData:        jellyfin.UserData{PlaybackPositionTicks: 0, Played: false},
 	}
-	got := toEpisode(jfe, "http://jf.example.com", "https://api.stoganet.com")
+	got := toEpisode(jfe, "https://api.stoganet.com")
 	if got.ID != "jf:ep1" {
 		t.Errorf("ID: got %q, want jf:ep1", got.ID)
 	}
@@ -235,7 +235,7 @@ func TestToEpisode_MapsFieldsCorrectly(t *testing.T) {
 	if got.Runtime != 29 { // 17_640_000_000 / 600_000_000 = 29.4 → 29
 		t.Errorf("runtime: got %d, want 29", got.Runtime)
 	}
-	if got.Thumbnail != "http://jf.example.com/Items/ep1/Images/Primary" {
+	if got.Thumbnail != "https://api.stoganet.com/images/ep1/primary" {
 		t.Errorf("thumbnail: got %q", got.Thumbnail)
 	}
 	if got.Play == nil || got.Play.StreamURL != "https://api.stoganet.com/stream/ep1" {
@@ -252,7 +252,7 @@ func TestToDetail_Movie_HasPlayAndProgress(t *testing.T) {
 		Year: 1999, Runtime: 81_600_000_000,
 		UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000, Played: false},
 	}
-	d := toDetail(jf, nil, "http://jf.example.com", "https://api.stoganet.com")
+	d := toDetail(jf, nil, "https://api.stoganet.com")
 	if d.Play == nil {
 		t.Error("movie must have Play")
 	}
@@ -279,7 +279,7 @@ func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
 		UserData: jellyfin.UserData{PlaybackPositionTicks: 4_120_000_000, Played: false},
 	}
 	firstEp := &jellyfin.Episode{ID: "ep1", Name: "Pilot", IndexNumber: 1, ParentIndexNumber: 1}
-	d := toSeriesDetail(jf, seasons, nextUp, firstEp, "http://jf.example.com", "https://api.stoganet.com")
+	d := toSeriesDetail(jf, seasons, nextUp, firstEp, "https://api.stoganet.com")
 	if d.Play != nil {
 		t.Error("series must not have Play")
 	}
@@ -302,7 +302,7 @@ func TestToSeriesDetail_HasSeasonsAndResume(t *testing.T) {
 
 func TestToSeriesDetail_NoNextUp_NilResume(t *testing.T) {
 	jf := jellyfin.Item{ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries}
-	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
+	d := toSeriesDetail(jf, nil, nil, nil, "https://api.stoganet.com")
 	if d.Resume != nil {
 		t.Errorf("Resume should be nil for unwatched series, got %+v", d.Resume)
 	}
@@ -315,7 +315,7 @@ func TestToSeriesDetail_Start_PopulatedFromFirstEpisode(t *testing.T) {
 		PrimaryImageTag: "tag1",
 		UserData:        jellyfin.UserData{PlaybackPositionTicks: 9_000_000_000, Played: true},
 	}
-	d := toSeriesDetail(jf, nil, nil, firstEp, "http://jf.example.com", "https://api.stoganet.com")
+	d := toSeriesDetail(jf, nil, nil, firstEp, "https://api.stoganet.com")
 	if d.Start == nil {
 		t.Fatal("Start must not be nil when firstEpisode is provided")
 	}
@@ -328,14 +328,14 @@ func TestToSeriesDetail_Start_PopulatedFromFirstEpisode(t *testing.T) {
 	if d.Start.Progress.PositionMS != 0 || d.Start.Progress.Played {
 		t.Errorf("Start.Progress must be zeroed, got %+v", d.Start.Progress)
 	}
-	if d.Start.Thumbnail != "http://jf.example.com/Items/ep1/Images/Primary" {
+	if d.Start.Thumbnail != "https://api.stoganet.com/images/ep1/primary" {
 		t.Errorf("Start.Thumbnail: got %q", d.Start.Thumbnail)
 	}
 }
 
 func TestToSeriesDetail_NoFirstEpisode_NilStart(t *testing.T) {
 	jf := jellyfin.Item{ID: "tv1", Name: "Test Show", Type: jellyfin.ItemTypeSeries}
-	d := toSeriesDetail(jf, nil, nil, nil, "http://jf.example.com", "https://api.stoganet.com")
+	d := toSeriesDetail(jf, nil, nil, nil, "https://api.stoganet.com")
 	if d.Start != nil {
 		t.Errorf("Start should be nil when no firstEpisode, got %+v", d.Start)
 	}
