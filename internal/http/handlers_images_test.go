@@ -87,6 +87,44 @@ func TestImages_Backdrop_UsesBackdropPath(t *testing.T) {
 	}
 }
 
+func TestImages_RequestsDownscaledImages(t *testing.T) {
+	cases := []struct {
+		kind         string
+		wantMaxWidth string
+	}{
+		{"primary", "400"},
+		{"backdrop", "1920"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.kind, func(t *testing.T) {
+			var gotMaxWidth, gotQuality string
+			jfSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotMaxWidth = r.URL.Query().Get("maxWidth")
+				gotQuality = r.URL.Query().Get("quality")
+				_, _ = w.Write([]byte("fake-jpeg-bytes"))
+			}))
+			defer jfSrv.Close()
+
+			fa := &fakeAuth{
+				verifyOut: &auth.Claims{UserID: "u1", JFUserID: "jf-uid"},
+				jfTok:     "jf-tok",
+			}
+			h := newImageServer(t, fa, jfSrv.URL)
+
+			req := httptest.NewRequest(http.MethodGet, "/images/abc123/"+tc.kind, nil)
+			req.Header.Set("Authorization", "Bearer test-token")
+			h.ServeHTTP(httptest.NewRecorder(), req)
+
+			if gotMaxWidth != tc.wantMaxWidth {
+				t.Errorf("maxWidth: got %q, want %q", gotMaxWidth, tc.wantMaxWidth)
+			}
+			if gotQuality != "90" {
+				t.Errorf("quality: got %q, want 90", gotQuality)
+			}
+		})
+	}
+}
+
 func TestImages_UnknownKind_Returns404(t *testing.T) {
 	fa := &fakeAuth{
 		verifyOut: &auth.Claims{UserID: "u1", JFUserID: "jf-uid"},

@@ -9,6 +9,12 @@ import (
 	"github.com/Stoganet/api-proxy/internal/gen"
 )
 
+const (
+	posterMaxWidth   = "400"
+	backdropMaxWidth = "1920"
+	imageQuality     = "90"
+)
+
 // newImageHandler proxies Jellyfin item images so the client never talks to Jellyfin directly
 // (it only knows the internal-only Docker address, e.g. http://jellyfin:8096, which isn't
 // reachable from outside the compose network).
@@ -31,6 +37,8 @@ func newImageHandler(authSvc authService, jellyfinBaseURL string, logger *slog.L
 		}
 		q := target.Query()
 		q.Set("api_key", jfToken)
+		q.Set("maxWidth", imageMaxWidth(kind))
+		q.Set("quality", imageQuality)
 		target.RawQuery = q.Encode()
 		return target, nil
 	})
@@ -54,4 +62,12 @@ func imageJfPath(kind, jfID string) ([]string, bool) {
 	default:
 		return nil, false
 	}
+}
+
+// imageMaxWidth asks Jellyfin to downscale the image
+func imageMaxWidth(kind string) string {
+	if kind == "backdrop" {
+		return backdropMaxWidth
+	}
+	return posterMaxWidth
 }
