@@ -263,10 +263,10 @@ type sectionDef struct {
 }
 
 var homeSections = []sectionDef{
-	{id: "recently_added_movies", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeMovie, SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
-	{id: "recently_added_tv", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeSeries, SortBy: jellyfin.SortByDateCreated, SortDesc: true, Limit: homeRowLimit}},
-	{id: "all_movies", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeMovie, Limit: homeRowLimit}},
-	{id: "all_tv", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeSeries, Limit: homeRowLimit}},
+	{id: "recently_added_movies", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeMovie, SortBy: jellyfin.SortByDateCreated, SortDesc: true, Fields: jellyfin.FieldsProviderIDsOnly, Limit: homeRowLimit}},
+	{id: "recently_added_tv", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeSeries, SortBy: jellyfin.SortByDateCreated, SortDesc: true, Fields: jellyfin.FieldsProviderIDsOnly, Limit: homeRowLimit}},
+	{id: "all_movies", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeMovie, Fields: jellyfin.FieldsProviderIDsOnly, Limit: homeRowLimit}},
+	{id: "all_tv", opts: jellyfin.GetItemsOpts{Type: jellyfin.ItemTypeSeries, Fields: jellyfin.FieldsProviderIDsOnly, Limit: homeRowLimit}},
 }
 
 func (s *Service) Home(ctx context.Context, jfUserID string) (*HomeResult, error) {
@@ -324,6 +324,7 @@ func (s *Service) List(ctx context.Context, jfUserID string, opts ListOpts) (*Li
 	}
 
 	jfOpts := jellyfin.GetItemsOpts{
+		Fields:     jellyfin.FieldsProviderIDsOnly,
 		Limit:      limit,
 		StartIndex: opts.StartIndex,
 	}

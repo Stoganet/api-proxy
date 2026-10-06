@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
@@ -456,6 +457,17 @@ func TestService_List_ReturnsPaginatedResult(t *testing.T) {
 	}
 }
 
+func TestService_List_RequestsOnlyProviderIDs(t *testing.T) {
+	jf := &fakeJF{items: &jellyfin.ItemsResult{TotalCount: 0}}
+
+	if _, err := newSvc(jf).List(context.Background(), "jf-user-1", ListOpts{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jf.capturedOpts.Fields != jellyfin.FieldsProviderIDsOnly {
+		t.Errorf("Fields: got %q, want %q", jf.capturedOpts.Fields, jellyfin.FieldsProviderIDsOnly)
+	}
+}
+
 func TestService_List_EmptyNextCursorOnLastPage(t *testing.T) {
 	jf := &fakeJF{items: &jellyfin.ItemsResult{
 		Items:      []jellyfin.Item{{ID: "jf-1", Type: "Movie"}},
@@ -586,6 +598,28 @@ func TestService_Home_HasMore_FalseWhenAllReturned(t *testing.T) {
 	for _, sec := range res.Sections {
 		if sec.HasMore {
 			t.Errorf("section %q: HasMore should be false when TotalCount == len(Items)", sec.ID)
+		}
+	}
+}
+
+func TestService_Home_RequestsOnlyProviderIDs(t *testing.T) {
+	var mu sync.Mutex
+	var got []string
+	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
+		mu.Lock()
+		got = append(got, opts.Fields)
+		mu.Unlock()
+		return okSection(), nil
+	}}
+	if _, err := newSvc(jf).Home(context.Background(), "uid"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != len(homeSections) {
+		t.Fatalf("GetItems calls: got %d, want %d", len(got), len(homeSections))
+	}
+	for _, f := range got {
+		if f != jellyfin.FieldsProviderIDsOnly {
+			t.Errorf("Fields: got %q, want %q", f, jellyfin.FieldsProviderIDsOnly)
 		}
 	}
 }
