@@ -27,34 +27,6 @@ func rateLimitKey(r *stdhttp.Request) (string, error) {
 	return httprate.CanonicalizeIP(ip), nil
 }
 
-func stripUntrustedForwardedFor(next stdhttp.Handler) stdhttp.Handler {
-	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if !fromTraefik(r) {
-			r.Header.Del("X-Forwarded-For")
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-var lookupHost = net.LookupHost
-
-func fromTraefik(r *stdhttp.Request) bool {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	ips, err := lookupHost("traefik")
-	if err != nil {
-		return false
-	}
-	for _, ip := range ips {
-		if ip == host {
-			return true
-		}
-	}
-	return false
-}
-
 func rateLimitStrictMiddleware() (gen.StrictMiddlewareFunc, func(stdhttp.Handler) stdhttp.Handler, func(stdhttp.Handler) stdhttp.Handler) {
 	return newRateLimitStrictMiddleware(30, 15, 60, 600, time.Minute)
 }

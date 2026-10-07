@@ -11,7 +11,6 @@ import (
 	"github.com/Stoganet/api-proxy/internal/auth"
 	"github.com/Stoganet/api-proxy/internal/gen"
 	"github.com/Stoganet/api-proxy/internal/media"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -69,7 +68,7 @@ func NewServer(authSvc *auth.Service, libSvc *media.Service, jellyfinBaseURL str
 	mux.Handle("GET /images/{jfId}/{kind}", imagesRateLimit(requireJWT(authSvc, newImageHandler(authSvc, jellyfinBaseURL, logger))))
 	mux.Handle("/", gen.Handler(strict))
 
-	return stripUntrustedForwardedFor(middleware.ClientIPFromXFF()(RequestID(Logging(logger)(mux))))
+	return RequestID(Logging(logger)(mux))
 }
 
 func jwtStrictMiddleware(svc authService) gen.StrictMiddlewareFunc {

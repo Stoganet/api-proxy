@@ -2,14 +2,12 @@ package http
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/Stoganet/api-proxy/internal/gen"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 func rateLimitedHandler(t *testing.T, mw gen.StrictMiddlewareFunc, operationID string) http.Handler {
@@ -24,12 +22,12 @@ func rateLimitedHandler(t *testing.T, mw gen.StrictMiddlewareFunc, operationID s
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-	return middleware.ClientIPFromXFF()(h)
+	return h
 }
 
 func requestFrom(h http.Handler, ip string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Forwarded-For", ip)
+	req.RemoteAddr = ip + ":1234"
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	return w
@@ -89,66 +87,6 @@ func TestRateLimit_ExemptOperationBypassesLimit(t *testing.T) {
 	}
 }
 
-func TestStripUntrustedForwardedFor_KeepsHeaderFromTraefik(t *testing.T) {
-	orig := lookupHost
-	lookupHost = func(string) ([]string, error) { return []string{"172.20.0.5"}, nil }
-	t.Cleanup(func() { lookupHost = orig })
-
-	var got string
-	h := stripUntrustedForwardedFor(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		got = r.Header.Get("X-Forwarded-For")
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.RemoteAddr = "172.20.0.5:4321"
-	req.Header.Set("X-Forwarded-For", "1.2.3.4")
-	h.ServeHTTP(httptest.NewRecorder(), req)
-
-	if got != "1.2.3.4" {
-		t.Errorf("X-Forwarded-For: got %q, want kept", got)
-	}
-}
-
-func TestStripUntrustedForwardedFor_StripsHeaderFromOtherContainer(t *testing.T) {
-	orig := lookupHost
-	lookupHost = func(string) ([]string, error) { return []string{"172.20.0.5"}, nil }
-	t.Cleanup(func() { lookupHost = orig })
-
-	var found bool
-	h := stripUntrustedForwardedFor(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		_, found = r.Header["X-Forwarded-For"]
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.RemoteAddr = "172.20.0.9:4321"
-	req.Header.Set("X-Forwarded-For", "1.2.3.4")
-	h.ServeHTTP(httptest.NewRecorder(), req)
-
-	if found {
-		t.Error("X-Forwarded-For should be stripped when RemoteAddr isn't Traefik")
-	}
-}
-
-func TestStripUntrustedForwardedFor_DNSFailure_Strips(t *testing.T) {
-	orig := lookupHost
-	lookupHost = func(string) ([]string, error) { return nil, errors.New("no such host") }
-	t.Cleanup(func() { lookupHost = orig })
-
-	var found bool
-	h := stripUntrustedForwardedFor(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		_, found = r.Header["X-Forwarded-For"]
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.RemoteAddr = "172.20.0.5:4321"
-	req.Header.Set("X-Forwarded-For", "1.2.3.4")
-	h.ServeHTTP(httptest.NewRecorder(), req)
-
-	if found {
-		t.Error("X-Forwarded-For should be stripped when Traefik lookup fails")
-	}
-}
-
 func TestRateLimitKey_FallsBackToRemoteAddr(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "9.9.9.9:5555"
@@ -175,5 +113,25 @@ func TestRateLimit_PollOperationUsesPollTier(t *testing.T) {
 	w := requestFrom(h, "10.0.0.6")
 	if w.Code != http.StatusTooManyRequests {
 		t.Fatalf("got %d, want 429", w.Code)
+	}
+}
+
+func TestRateLimit_IgnoresForwardedFor(t *testing.T) {
+	mw, _, _ := newRateLimitStrictMiddleware(1, 1, 1, 1, time.Minute)
+	h := rateLimitedHandler(t, mw, "GetSearch")
+
+	for i, xff := range []string{"1.1.1.1", "2.2.2.2"} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "10.0.0.7:1234"
+		req.Header.Set("X-Forwarded-For", xff)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		want := http.StatusOK
+		if i == 1 {
+			want = http.StatusTooManyRequests
+		}
+		if w.Code != want {
+			t.Fatalf("request %d: got %d, want %d", i, w.Code, want)
+		}
 	}
 }
