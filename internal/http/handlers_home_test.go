@@ -15,8 +15,11 @@ func TestGetHome_Returns200WithSections(t *testing.T) {
 	fc := &fakeLibrary{home: &media.HomeResult{
 		Sections: []media.HomeSection{
 			{
-				ID:      "recently_added_movies",
-				Items:   []media.Item{{ID: "tmdb:movie:1", Title: "Movie A", Type: media.TypeMovie, State: media.StatePlayable}},
+				ID: "recently_added_movies",
+				Items: []media.Item{{
+					ID: "tmdb:movie:1", Title: "Movie A", Type: media.TypeMovie, State: media.StatePlayable,
+					Thumb: "https://api.stoganet.com/images/jf-1/thumb", ThumbHasLogo: true,
+				}},
 				HasMore: true,
 			},
 			{
@@ -51,6 +54,13 @@ func TestGetHome_Returns200WithSections(t *testing.T) {
 	}
 	if resp.Sections[1].HasMore {
 		t.Errorf("section[1].has_more: want false")
+	}
+	withThumb := resp.Sections[0].Items[0]
+	if withThumb.Thumb == nil || *withThumb.Thumb != "https://api.stoganet.com/images/jf-1/thumb" || !withThumb.ThumbHasLogo {
+		t.Errorf("section[0] item thumb: got %v, has_logo %v", withThumb.Thumb, withThumb.ThumbHasLogo)
+	}
+	if noThumb := resp.Sections[1].Items[0]; noThumb.Thumb != nil || noThumb.ThumbHasLogo {
+		t.Errorf("section[1] item thumb: want nil and no logo, got %v, %v", noThumb.Thumb, noThumb.ThumbHasLogo)
 	}
 }
 

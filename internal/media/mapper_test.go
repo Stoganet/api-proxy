@@ -66,6 +66,34 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	}
 }
 
+func TestToItem_Thumb_PrefersThumbArtThenSmallBackdrop(t *testing.T) {
+	cases := []struct {
+		name         string
+		thumbTag     string
+		backdropTags []string
+		wantThumb    string
+		wantHasLogo  bool
+	}{
+		{"thumb art", "ttag", []string{"btag"}, "https://api.stoganet.com/images/jf-abc/thumb", true},
+		{"backdrop only", "", []string{"btag"}, "https://api.stoganet.com/images/jf-abc/backdrop_small", false},
+		{"no images", "", nil, "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := jellyfin.Item{ID: "jf-abc", ThumbImageTag: tc.thumbTag, BackdropTags: tc.backdropTags}
+
+			got := toItem(item, "https://api.stoganet.com")
+
+			if got.Thumb != tc.wantThumb {
+				t.Errorf("Thumb: got %q, want %q", got.Thumb, tc.wantThumb)
+			}
+			if got.ThumbHasLogo != tc.wantHasLogo {
+				t.Errorf("ThumbHasLogo: got %v, want %v", got.ThumbHasLogo, tc.wantHasLogo)
+			}
+		})
+	}
+}
+
 func TestToDetail_SubtitleTracks_MappedFromJellyfin(t *testing.T) {
 	item := jellyfin.Item{ID: "jf-abc", Type: jellyfin.ItemTypeMovie}
 	tracks := []jellyfin.SubtitleTrack{

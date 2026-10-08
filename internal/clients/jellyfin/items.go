@@ -32,6 +32,7 @@ type Item struct {
 	Genres          []string
 	Runtime         int64
 	PrimaryImageTag string
+	ThumbImageTag   string
 	BackdropTags    []string
 	ProviderIDs     map[string]string
 	People          []Person
@@ -260,6 +261,7 @@ func (r *jfItemResponse) toItem() *Item {
 		Genres:          r.Genres,
 		Runtime:         r.RunTimeTicks,
 		PrimaryImageTag: r.ImageTags["Primary"],
+		ThumbImageTag:   r.ImageTags["Thumb"],
 		BackdropTags:    r.BackdropTags,
 		ProviderIDs:     r.ProviderIDs,
 		People:          people,

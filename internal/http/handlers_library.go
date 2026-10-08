@@ -68,15 +68,21 @@ func toGenItem(it media.Item) gen.LibraryItem {
 	if it.Backdrop != "" {
 		backdrop = &it.Backdrop
 	}
+	var thumb *string
+	if it.Thumb != "" {
+		thumb = &it.Thumb
+	}
 	return gen.LibraryItem{
-		Id:       it.ID,
-		Title:    it.Title,
-		Year:     it.Year,
-		Type:     gen.MediaType(string(it.Type)),
-		Poster:   it.Poster,
-		Backdrop: backdrop,
-		Overview: it.Overview,
-		State:    gen.MediaState(string(it.State)),
+		Id:           it.ID,
+		Title:        it.Title,
+		Year:         it.Year,
+		Type:         gen.MediaType(string(it.Type)),
+		Poster:       it.Poster,
+		Backdrop:     backdrop,
+		Thumb:        thumb,
+		ThumbHasLogo: it.ThumbHasLogo,
+		Overview:     it.Overview,
+		State:        gen.MediaState(string(it.State)),
 	}
 }
 
@@ -157,18 +163,20 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 	}
 
 	detail := gen.LibraryDetail{
-		Id:       base.Id,
-		Title:    base.Title,
-		Year:     base.Year,
-		Type:     base.Type,
-		Poster:   base.Poster,
-		Backdrop: base.Backdrop,
-		Overview: base.Overview,
-		State:    base.State,
-		Genres:   genres,
-		Runtime:  d.Runtime,
-		Cast:     cast,
-		Seasons:  seasons,
+		Id:           base.Id,
+		Title:        base.Title,
+		Year:         base.Year,
+		Type:         base.Type,
+		Poster:       base.Poster,
+		Backdrop:     base.Backdrop,
+		Thumb:        base.Thumb,
+		ThumbHasLogo: base.ThumbHasLogo,
+		Overview:     base.Overview,
+		State:        base.State,
+		Genres:       genres,
+		Runtime:      d.Runtime,
+		Cast:         cast,
+		Seasons:      seasons,
 	}
 
 	if d.Play != nil {

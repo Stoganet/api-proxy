@@ -63,27 +63,42 @@ func TestImages_Primary_PipesImageBytes(t *testing.T) {
 	}
 }
 
-func TestImages_Backdrop_UsesBackdropPath(t *testing.T) {
-	var capturedPath string
-	jfSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedPath = r.URL.Path
-		_, _ = w.Write([]byte("fake-jpeg-bytes"))
-	}))
-	defer jfSrv.Close()
-
-	fa := &fakeAuth{
-		verifyOut: &auth.Claims{UserID: "u1", JFUserID: "jf-uid"},
-		jfTok:     "jf-tok",
+func TestImages_KindUsesJellyfinPath(t *testing.T) {
+	cases := []struct {
+		kind     string
+		wantPath string
+	}{
+		{"backdrop", "/Items/abc123/Images/Backdrop/0"},
+		{"backdrop_small", "/Items/abc123/Images/Backdrop/0"},
+		{"thumb", "/Items/abc123/Images/Thumb"},
 	}
-	h := newImageServer(t, fa, jfSrv.URL)
+	for _, tc := range cases {
+		t.Run(tc.kind, func(t *testing.T) {
+			var capturedPath string
+			jfSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedPath = r.URL.Path
+				_, _ = w.Write([]byte("fake-jpeg-bytes"))
+			}))
+			defer jfSrv.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/images/abc123/backdrop", nil)
-	req.Header.Set("Authorization", "Bearer test-token")
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
+			fa := &fakeAuth{
+				verifyOut: &auth.Claims{UserID: "u1", JFUserID: "jf-uid"},
+				jfTok:     "jf-tok",
+			}
+			h := newImageServer(t, fa, jfSrv.URL)
 
-	if capturedPath != "/Items/abc123/Images/Backdrop/0" {
-		t.Errorf("jellyfin path: got %q", capturedPath)
+			req := httptest.NewRequest(http.MethodGet, "/images/abc123/"+tc.kind, nil)
+			req.Header.Set("Authorization", "Bearer test-token")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("got %d, want 200", w.Code)
+			}
+			if capturedPath != tc.wantPath {
+				t.Errorf("jellyfin path: got %q, want %q", capturedPath, tc.wantPath)
+			}
+		})
 	}
 }
 
@@ -94,6 +109,8 @@ func TestImages_RequestsDownscaledImages(t *testing.T) {
 	}{
 		{"primary", "400"},
 		{"backdrop", "1920"},
+		{"backdrop_small", "640"},
+		{"thumb", "640"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.kind, func(t *testing.T) {
@@ -235,6 +252,8 @@ func TestImageJfPath(t *testing.T) {
 	}{
 		{"primary", true, 4},
 		{"backdrop", true, 5},
+		{"backdrop_small", true, 5},
+		{"thumb", true, 4},
 		{"thumbnail", false, 0},
 		{"", false, 0},
 	}

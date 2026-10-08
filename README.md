@@ -172,6 +172,8 @@ Always pass catalog IDs from list/detail responses back to the proxy. Never cons
   "type": "movie",
   "poster": "https://jellyfin.example.com/Items/.../Images/Primary",
   "backdrop": "https://jellyfin.example.com/Items/.../Images/Backdrop/0",
+  "thumb": "https://api.stoganet.com/images/<jfId>/thumb",
+  "thumb_has_logo": true,
   "overview": "...",
   "state": "playable",
   "genres": ["Action", "Sci-Fi"],

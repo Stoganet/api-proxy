@@ -12,6 +12,7 @@ import (
 const (
 	posterMaxWidth   = "400"
 	backdropMaxWidth = "1920"
+	cardMaxWidth     = "640" // 16:9 card images (thumb, backdrop_small)
 	imageQuality     = "90"
 )
 
@@ -45,7 +46,7 @@ func newImageHandler(authSvc authService, jellyfinBaseURL string, logger *slog.L
 
 	return stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.PathValue("kind") {
-		case "primary", "backdrop":
+		case "primary", "backdrop", "thumb", "backdrop_small":
 			proxy.ServeHTTP(w, r)
 		default:
 			writeError(w, r, stdhttp.StatusNotFound, gen.ItemNotFound, "unknown image kind")
@@ -57,8 +58,10 @@ func imageJfPath(kind, jfID string) ([]string, bool) {
 	switch kind {
 	case "primary":
 		return []string{"Items", jfID, "Images", "Primary"}, true
-	case "backdrop":
+	case "backdrop", "backdrop_small":
 		return []string{"Items", jfID, "Images", "Backdrop", "0"}, true
+	case "thumb":
+		return []string{"Items", jfID, "Images", "Thumb"}, true
 	default:
 		return nil, false
 	}
@@ -66,8 +69,12 @@ func imageJfPath(kind, jfID string) ([]string, bool) {
 
 // imageMaxWidth asks Jellyfin to downscale the image
 func imageMaxWidth(kind string) string {
-	if kind == "backdrop" {
+	switch kind {
+	case "backdrop":
 		return backdropMaxWidth
+	case "thumb", "backdrop_small":
+		return cardMaxWidth
+	default:
+		return posterMaxWidth
 	}
-	return posterMaxWidth
 }

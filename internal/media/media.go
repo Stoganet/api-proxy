@@ -16,14 +16,16 @@ const (
 )
 
 type Item struct {
-	ID       string
-	Title    string
-	Year     int
-	Type     Type
-	Poster   string
-	Backdrop string
-	Overview string
-	State    State
+	ID           string
+	Title        string
+	Year         int
+	Type         Type
+	Poster       string
+	Backdrop     string
+	Thumb        string // small 16:9 card image
+	ThumbHasLogo bool   // Thumb has the title printed in it
+	Overview     string
+	State        State
 }
 
 type Detail struct {

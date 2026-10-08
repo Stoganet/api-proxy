@@ -41,15 +41,18 @@ func toSubtitleTracks(jf []jellyfin.SubtitleTrack) []SubtitleTrack {
 }
 
 func toItem(jf jellyfin.Item, proxyBaseURL string) Item {
+	thumb, thumbHasLogo := thumb(jf, proxyBaseURL)
 	return Item{
-		ID:       itemID(jf),
-		Title:    jf.Name,
-		Year:     jf.Year,
-		Type:     itemType(jf.Type),
-		Poster:   joinURL(proxyBaseURL, "images", jf.ID, "primary"),
-		Backdrop: backdrop(jf, proxyBaseURL),
-		Overview: jf.Overview,
-		State:    StatePlayable,
+		ID:           itemID(jf),
+		Title:        jf.Name,
+		Year:         jf.Year,
+		Type:         itemType(jf.Type),
+		Poster:       joinURL(proxyBaseURL, "images", jf.ID, "primary"),
+		Backdrop:     backdrop(jf, proxyBaseURL),
+		Thumb:        thumb,
+		ThumbHasLogo: thumbHasLogo,
+		Overview:     jf.Overview,
+		State:        StatePlayable,
 	}
 }
 
@@ -200,6 +203,19 @@ func backdrop(jf jellyfin.Item, proxyBaseURL string) string {
 		return ""
 	}
 	return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
+}
+
+// thumb picks the card image: Jellyfin's thumb art (which has the title printed in it) when the
+// item has one, otherwise a downscaled backdrop. The bool tells clients whether the title is in
+// the image, so it always matches the image actually served.
+func thumb(jf jellyfin.Item, proxyBaseURL string) (string, bool) {
+	if jf.ThumbImageTag != "" {
+		return joinURL(proxyBaseURL, "images", jf.ID, "thumb"), true
+	}
+	if len(jf.BackdropTags) > 0 {
+		return joinURL(proxyBaseURL, "images", jf.ID, "backdrop_small"), false
+	}
+	return "", false
 }
 
 func toDetailFromSeerr(md seerr.MovieDetails) Detail {

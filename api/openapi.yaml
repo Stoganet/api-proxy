@@ -170,7 +170,7 @@ components:
 
     LibraryItem:
       type: object
-      required: [id, title, year, type, poster, overview, state]
+      required: [id, title, year, type, poster, thumb_has_logo, overview, state]
       properties:
         id:       { type: string }
         title:    { type: string }
@@ -178,6 +178,13 @@ components:
         type:     { $ref: '#/components/schemas/MediaType' }
         poster:   { type: string }
         backdrop: { type: string, nullable: true }
+        thumb:
+          type: string
+          nullable: true
+          description: Small 16:9 card image. The item's thumb art when it has one, otherwise a downscaled backdrop.
+        thumb_has_logo:
+          type: boolean
+          description: True when thumb is thumb art with the title printed in it, so clients can skip drawing the title.
         overview: { type: string }
         state:    { $ref: '#/components/schemas/MediaState' }
 

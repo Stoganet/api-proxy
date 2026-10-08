@@ -29,7 +29,7 @@ func TestGetItem_ReturnsItem(t *testing.T) {
 			"ProductionYear": 1999,
 			"ProviderIds":    map[string]string{"Tmdb": "603"},
 			"RunTimeTicks":   81_600_000_000,
-			"ImageTags":      map[string]string{"Primary": "tag1"},
+			"ImageTags":      map[string]string{"Primary": "tag1", "Thumb": "ttag"},
 			"Genres":         []string{"Action"},
 		})
 	})
@@ -55,6 +55,9 @@ func TestGetItem_ReturnsItem(t *testing.T) {
 	}
 	if item.PrimaryImageTag != "tag1" {
 		t.Errorf("PrimaryImageTag: got %q", item.PrimaryImageTag)
+	}
+	if item.ThumbImageTag != "ttag" {
+		t.Errorf("ThumbImageTag: got %q", item.ThumbImageTag)
 	}
 }
 
