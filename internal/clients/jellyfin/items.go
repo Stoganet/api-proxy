@@ -61,8 +61,8 @@ const (
 )
 
 const (
-	FieldsDetail          = "Genres,People,ProviderIds,Overview,ChildCount"
-	FieldsProviderIDsOnly = "ProviderIds"
+	FieldsDetail = "Genres,People,ProviderIds,Overview,ChildCount"
+	FieldsList   = "ProviderIds,Overview"
 )
 
 type GetItemsOpts struct {

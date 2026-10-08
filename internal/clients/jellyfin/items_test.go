@@ -123,12 +123,12 @@ func TestGetItems_CustomFields_Overrides(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
 	})
 
-	_, err := c.GetItems(context.Background(), "uid-1", GetItemsOpts{Type: "Movie", Fields: FieldsProviderIDsOnly})
+	_, err := c.GetItems(context.Background(), "uid-1", GetItemsOpts{Type: "Movie", Fields: FieldsList})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if gotFields != FieldsProviderIDsOnly {
-		t.Errorf("Fields: got %q, want %q", gotFields, FieldsProviderIDsOnly)
+	if gotFields != FieldsList {
+		t.Errorf("Fields: got %q, want %q", gotFields, FieldsList)
 	}
 }
 

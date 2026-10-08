@@ -290,8 +290,8 @@ func TestService_RefreshTmdbIndex_Paginates(t *testing.T) {
 
 func TestService_RefreshTmdbIndex_BuildsIndexFromBothTypes(t *testing.T) {
 	jf := &fakeJFFunc{fn: func(opts jellyfin.GetItemsOpts) (*jellyfin.ItemsResult, error) {
-		if opts.Fields != jellyfin.FieldsProviderIDsOnly {
-			t.Errorf("Fields: got %q, want %q", opts.Fields, jellyfin.FieldsProviderIDsOnly)
+		if opts.Fields != jellyfin.FieldsList {
+			t.Errorf("Fields: got %q, want %q", opts.Fields, jellyfin.FieldsList)
 		}
 		switch opts.Type {
 		case jellyfin.ItemTypeMovie:
@@ -463,8 +463,8 @@ func TestService_List_RequestsOnlyProviderIDs(t *testing.T) {
 	if _, err := newSvc(jf).List(context.Background(), "jf-user-1", ListOpts{}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if jf.capturedOpts.Fields != jellyfin.FieldsProviderIDsOnly {
-		t.Errorf("Fields: got %q, want %q", jf.capturedOpts.Fields, jellyfin.FieldsProviderIDsOnly)
+	if jf.capturedOpts.Fields != jellyfin.FieldsList {
+		t.Errorf("Fields: got %q, want %q", jf.capturedOpts.Fields, jellyfin.FieldsList)
 	}
 }
 
@@ -618,8 +618,8 @@ func TestService_Home_RequestsOnlyProviderIDs(t *testing.T) {
 		t.Fatalf("GetItems calls: got %d, want %d", len(got), len(homeSections))
 	}
 	for _, f := range got {
-		if f != jellyfin.FieldsProviderIDsOnly {
-			t.Errorf("Fields: got %q, want %q", f, jellyfin.FieldsProviderIDsOnly)
+		if f != jellyfin.FieldsList {
+			t.Errorf("Fields: got %q, want %q", f, jellyfin.FieldsList)
 		}
 	}
 }
