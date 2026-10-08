@@ -454,10 +454,10 @@ paths:
     get:
       summary: Proxy a Jellyfin item image
       description: |
-        Proxies poster/backdrop image bytes from Jellyfin. Implemented outside the
+        Proxies poster/backdrop/thumb image bytes from Jellyfin. Implemented outside the
         oapi-codegen strict server (binary, not JSON) and wired directly on the mux,
         same as `/stream/{jfId}`. Clients never construct Jellyfin image URLs
-        themselves; the full URL comes from `Item.poster`/`.backdrop` /
+        themselves; the full URL comes from `Item.poster`/`.backdrop`/`.thumb` /
         `Episode.thumbnail`, which already point here.
       operationId: getImagesJfIdKind
       security: [ { BearerJWT: [] } ]
@@ -470,7 +470,7 @@ paths:
         - name: kind
           in: path
           required: true
-          schema: { type: string, enum: [primary, backdrop] }
+          schema: { type: string, enum: [primary, backdrop, thumb, backdrop_small] }
       responses:
         '200':
           description: Image content
