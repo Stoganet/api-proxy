@@ -218,6 +218,17 @@ components:
         series:        { $ref: '#/components/schemas/SeriesRef' }
         season_number: { type: integer }
         number:        { type: integer }
+        next:          { $ref: '#/components/schemas/NextEpisode', nullable: true, description: 'Episode after this one in series order, null on the last episode' }
+
+    NextEpisode:
+      type: object
+      required: [id, season_number, number, title]
+      properties:
+        id:            { type: string }
+        season_number: { type: integer }
+        number:        { type: integer }
+        title:         { type: string }
+        progress:      { $ref: '#/components/schemas/WatchProgress', nullable: true }
 
     LibraryListResponse:
       type: object

@@ -412,6 +412,10 @@ func TestGetLibraryId_EpisodeDetail_HasEpisodeInfo(t *testing.T) {
 			Series:       media.SeriesRef{ID: "jf:show1", Title: "Test Show"},
 			SeasonNumber: 1,
 			Number:       3,
+			Next: &media.NextEpisode{
+				ID: "jf:ep4", SeasonNumber: 1, Number: 4, Title: "Next Episode",
+				Progress: &media.WatchProgress{PositionMS: 120_000},
+			},
 		},
 	}}
 
@@ -425,12 +429,20 @@ func TestGetLibraryId_EpisodeDetail_HasEpisodeInfo(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	want := gen.EpisodeInfo{
-		Series:       gen.SeriesRef{Id: "jf:show1", Title: "Test Show"},
-		SeasonNumber: 1,
-		Number:       3,
+	if resp.Episode == nil {
+		t.Fatal("episode must be set")
 	}
-	if resp.Episode == nil || *resp.Episode != want {
-		t.Errorf("episode: got %+v, want %+v", resp.Episode, want)
+	if resp.Episode.Series != (gen.SeriesRef{Id: "jf:show1", Title: "Test Show"}) {
+		t.Errorf("series: got %+v", resp.Episode.Series)
+	}
+	if resp.Episode.SeasonNumber != 1 || resp.Episode.Number != 3 {
+		t.Errorf("numbers: got season %d, episode %d", resp.Episode.SeasonNumber, resp.Episode.Number)
+	}
+	next := resp.Episode.Next
+	if next == nil || next.Id != "jf:ep4" || next.SeasonNumber != 1 || next.Number != 4 || next.Title != "Next Episode" {
+		t.Fatalf("next: got %+v", next)
+	}
+	if next.Progress == nil || next.Progress.PositionMs != 120_000 {
+		t.Errorf("next.progress: got %+v", next.Progress)
 	}
 }

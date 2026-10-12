@@ -174,3 +174,126 @@ func TestGetFirstEpisode_EmptyResult_ReturnsNil(t *testing.T) {
 		t.Errorf("expected nil, got %+v", ep)
 	}
 }
+
+func TestGetNextEpisode_ReturnsEpisodeAfterCurrent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Shows/series1/Episodes" {
+			t.Errorf("path: got %q", r.URL.Path)
+		}
+		if r.URL.Query().Get("StartItemId") != "ep3" {
+			t.Errorf("StartItemId: got %q, want ep3", r.URL.Query().Get("StartItemId"))
+		}
+		if r.URL.Query().Get("IsMissing") != "false" {
+			t.Errorf("IsMissing: got %q, want false", r.URL.Query().Get("IsMissing"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]any{
+				{"Id": "ep3", "Name": "Current", "IndexNumber": 3, "ParentIndexNumber": 1},
+				{
+					"Id": "ep4", "Name": "Next", "IndexNumber": 4, "ParentIndexNumber": 1,
+					"UserData": map[string]any{"PlaybackPositionTicks": int64(1_200_000_000), "Played": false},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetNextEpisode(context.Background(), "uid", "series1", "ep3")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep == nil {
+		t.Fatal("expected episode, got nil")
+	}
+	if ep.ID != "ep4" || ep.IndexNumber != 4 || ep.ParentIndexNumber != 1 || ep.Name != "Next" {
+		t.Errorf("episode mismatch: %+v", ep)
+	}
+	if ep.UserData.PlaybackPositionTicks != 1_200_000_000 {
+		t.Errorf("UserData: got %+v", ep.UserData)
+	}
+}
+
+func TestGetNextEpisode_LastEpisode_ReturnsNil(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]any{{"Id": "ep10", "IndexNumber": 10, "ParentIndexNumber": 2}},
+		})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetNextEpisode(context.Background(), "uid", "series1", "ep10")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep != nil {
+		t.Errorf("expected nil, got %+v", ep)
+	}
+}
+
+func TestGetNextEpisode_SkipsSpecials(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]any{
+				{"Id": "ep10", "IndexNumber": 10, "ParentIndexNumber": 1},
+				{"Id": "sp1", "IndexNumber": 1, "ParentIndexNumber": 0},
+				{"Id": "sp2", "IndexNumber": 2, "ParentIndexNumber": 0},
+				{"Id": "s2e1", "IndexNumber": 1, "ParentIndexNumber": 2},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetNextEpisode(context.Background(), "uid", "series1", "ep10")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep == nil || ep.ID != "s2e1" {
+		t.Errorf("expected s2e1, got %+v", ep)
+	}
+}
+
+func TestGetNextEpisode_OnlySpecialsAfter_ReturnsNil(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]any{
+				{"Id": "ep10", "IndexNumber": 10, "ParentIndexNumber": 2},
+				{"Id": "sp1", "IndexNumber": 1, "ParentIndexNumber": 0},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetNextEpisode(context.Background(), "uid", "series1", "ep10")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep != nil {
+		t.Errorf("expected nil, got %+v", ep)
+	}
+}
+
+// Guards against Jellyfin ignoring StartItemId and listing from the first episode.
+func TestGetNextEpisode_FirstItemNotCurrent_ReturnsNil(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]any{
+				{"Id": "ep1", "IndexNumber": 1, "ParentIndexNumber": 1},
+				{"Id": "ep2", "IndexNumber": 2, "ParentIndexNumber": 1},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	ep, err := c.GetNextEpisode(context.Background(), "uid", "series1", "ep3")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ep != nil {
+		t.Errorf("expected nil, got %+v", ep)
+	}
+}

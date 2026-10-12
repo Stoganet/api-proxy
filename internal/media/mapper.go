@@ -56,7 +56,7 @@ func toItem(jf jellyfin.Item, proxyBaseURL string) Item {
 	}
 }
 
-func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, proxyBaseURL string) Detail {
+func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, next *jellyfin.Episode, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
@@ -76,19 +76,29 @@ func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, proxyBa
 			SubtitleTracks: toSubtitleTracks(subtitleTracks),
 		},
 		Progress: toWatchProgress(jf.UserData),
-		Episode:  toEpisodeInfo(jf),
+		Episode:  toEpisodeInfo(jf, next),
 	}
 }
 
-func toEpisodeInfo(jf jellyfin.Item) *EpisodeInfo {
+func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
 	if jf.Type != jellyfin.ItemTypeEpisode {
 		return nil
 	}
-	return &EpisodeInfo{
+	info := &EpisodeInfo{
 		Series:       SeriesRef{ID: "jf:" + jf.SeriesID, Title: jf.SeriesName},
 		SeasonNumber: jf.ParentIndexNumber,
 		Number:       jf.IndexNumber,
 	}
+	if next != nil {
+		info.Next = &NextEpisode{
+			ID:           "jf:" + next.ID,
+			SeasonNumber: next.ParentIndexNumber,
+			Number:       next.IndexNumber,
+			Title:        next.Name,
+			Progress:     toWatchProgress(next.UserData),
+		}
+	}
+	return info
 }
 
 func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, proxyBaseURL string) Detail {

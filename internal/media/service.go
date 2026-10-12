@@ -30,6 +30,7 @@ type JellyfinClient interface {
 	GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]jellyfin.Episode, error)
 	GetNextUp(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
 	GetFirstEpisode(ctx context.Context, userID, seriesID string) (*jellyfin.Episode, error)
+	GetNextEpisode(ctx context.Context, userID, seriesID, episodeID string) (*jellyfin.Episode, error)
 	SetUserData(ctx context.Context, userID, itemID string, positionMS int64, played bool) error
 	GetSubtitleTracks(ctx context.Context, userID, itemID string) ([]jellyfin.SubtitleTrack, error)
 }
@@ -123,11 +124,34 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 	if item.Type == jellyfin.ItemTypeSeries {
 		return s.getSeriesDetail(ctx, jfUserID, *item)
 	}
-	tracks, err := s.jf.GetSubtitleTracks(ctx, jfUserID, item.ID)
-	if err != nil {
-		s.logger.Warn("GetItem: subtitle tracks fetch failed", "item", item.ID, "err", err)
+	var (
+		tracks    []jellyfin.SubtitleTrack
+		tracksErr error
+		next      *jellyfin.Episode
+		nextErr   error
+	)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		tracks, tracksErr = s.jf.GetSubtitleTracks(ctx, jfUserID, item.ID)
+	}()
+	if item.Type == jellyfin.ItemTypeEpisode {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			next, nextErr = s.jf.GetNextEpisode(ctx, jfUserID, item.SeriesID, item.ID)
+		}()
 	}
-	d := toDetail(*item, tracks, s.proxyBaseURL)
+	wg.Wait()
+
+	if tracksErr != nil {
+		s.logger.Warn("GetItem: subtitle tracks fetch failed", "item", item.ID, "err", tracksErr)
+	}
+	if nextErr != nil {
+		s.logger.Warn("GetItem: next episode fetch failed", "item", item.ID, "err", nextErr)
+	}
+	d := toDetail(*item, tracks, next, s.proxyBaseURL)
 	return &d, nil
 }
 

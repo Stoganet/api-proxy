@@ -102,6 +102,15 @@ type EpisodeInfo struct {
 	Series       SeriesRef
 	SeasonNumber int
 	Number       int
+	Next         *NextEpisode // nil on the last episode
+}
+
+type NextEpisode struct {
+	ID           string
+	SeasonNumber int
+	Number       int
+	Title        string
+	Progress     *WatchProgress
 }
 
 type CastMember struct {

@@ -56,6 +56,11 @@ type fakeJF struct {
 	capturedPlayed     bool
 	subtitleTracks     []jellyfin.SubtitleTrack
 	subtitleTracksErr  error
+	getNextEpisode     *jellyfin.Episode
+	getNextEpisodeErr  error
+	nextEpisodeCalls   int
+	capturedSeriesID   string
+	capturedEpisodeID  string
 }
 
 func (f *fakeJF) GetItem(_ context.Context, _, itemID string) (*jellyfin.Item, error) {
@@ -94,6 +99,13 @@ func (f *fakeJF) SetUserData(_ context.Context, _, itemID string, positionMS int
 func (f *fakeJF) GetSubtitleTracks(_ context.Context, _, itemID string) ([]jellyfin.SubtitleTrack, error) {
 	f.capturedItemID = itemID
 	return f.subtitleTracks, f.subtitleTracksErr
+}
+
+func (f *fakeJF) GetNextEpisode(_ context.Context, _, seriesID, episodeID string) (*jellyfin.Episode, error) {
+	f.nextEpisodeCalls++
+	f.capturedSeriesID = seriesID
+	f.capturedEpisodeID = episodeID
+	return f.getNextEpisode, f.getNextEpisodeErr
 }
 
 func newSvc(jf JellyfinClient) *Service {
@@ -404,6 +416,68 @@ func TestService_GetItem_ReturnsDetail(t *testing.T) {
 	}
 }
 
+func testEpisodeItem() *jellyfin.Item {
+	return &jellyfin.Item{
+		ID:                "ep3",
+		Name:              "Test Episode",
+		Type:              jellyfin.ItemTypeEpisode,
+		SeriesID:          "series-1",
+		SeriesName:        "Test Show",
+		IndexNumber:       3,
+		ParentIndexNumber: 1,
+	}
+}
+
+func TestService_GetItem_Episode_PopulatesNext(t *testing.T) {
+	jf := &fakeJF{
+		item:           testEpisodeItem(),
+		getNextEpisode: &jellyfin.Episode{ID: "ep4", Name: "Next Episode", IndexNumber: 4, ParentIndexNumber: 1},
+	}
+	svc := newSvc(jf)
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "jf:ep3")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jf.capturedSeriesID != "series-1" || jf.capturedEpisodeID != "ep3" {
+		t.Errorf("GetNextEpisode args: series %q, episode %q", jf.capturedSeriesID, jf.capturedEpisodeID)
+	}
+	if d.Episode == nil || d.Episode.Next == nil || d.Episode.Next.ID != "jf:ep4" {
+		t.Errorf("Episode.Next: got %+v", d.Episode)
+	}
+}
+
+func TestService_GetItem_Episode_NextLookupFails_StillReturnsDetail(t *testing.T) {
+	jf := &fakeJF{
+		item:              testEpisodeItem(),
+		getNextEpisodeErr: errors.New("jellyfin down"),
+	}
+	svc := newSvc(jf)
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "jf:ep3")
+	if err != nil {
+		t.Fatalf("next lookup failure must not fail the request, got %v", err)
+	}
+	if d.Episode == nil {
+		t.Fatal("Episode must be set")
+	}
+	if d.Episode.Next != nil {
+		t.Errorf("Next must be nil, got %+v", d.Episode.Next)
+	}
+	if d.Play == nil {
+		t.Error("Play must be set")
+	}
+}
+
+func TestService_GetItem_Movie_SkipsNextLookup(t *testing.T) {
+	jf := &fakeJF{item: &jellyfin.Item{ID: "jf-1", Name: "Test Movie", Type: jellyfin.ItemTypeMovie}}
+	svc := newSvc(jf)
+	if _, err := svc.GetItem(context.Background(), "jf-user-1", "jf:jf-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jf.nextEpisodeCalls != 0 {
+		t.Errorf("GetNextEpisode calls: got %d, want 0", jf.nextEpisodeCalls)
+	}
+}
+
 func TestService_GetItem_Series_WithFirstEpisode_PopulatesStart(t *testing.T) {
 	jf := &fakeJF{
 		item: &jellyfin.Item{
@@ -511,6 +585,10 @@ func (f *fakeJFFunc) GetNextUp(_ context.Context, _, _ string) (*jellyfin.Episod
 }
 
 func (f *fakeJFFunc) GetFirstEpisode(_ context.Context, _, _ string) (*jellyfin.Episode, error) {
+	return nil, nil
+}
+
+func (f *fakeJFFunc) GetNextEpisode(_ context.Context, _, _, _ string) (*jellyfin.Episode, error) {
 	return nil, nil
 }
 
