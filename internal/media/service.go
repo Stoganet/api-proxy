@@ -136,7 +136,7 @@ func (s *Service) GetItem(ctx context.Context, jfUserID, catalogID string) (*Det
 		defer wg.Done()
 		tracks, tracksErr = s.jf.GetSubtitleTracks(ctx, jfUserID, item.ID)
 	}()
-	if item.Type == jellyfin.ItemTypeEpisode {
+	if item.Type == jellyfin.ItemTypeEpisode && item.SeriesID != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

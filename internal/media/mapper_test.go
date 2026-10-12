@@ -245,6 +245,16 @@ func TestToDetail_EpisodeWithoutNext_NilNext(t *testing.T) {
 	}
 }
 
+func TestToDetail_EpisodeWithoutSeries_NilEpisode(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-ep-1", Type: jellyfin.ItemTypeEpisode, IndexNumber: 3, ParentIndexNumber: 1}
+
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+	if got.Episode != nil {
+		t.Errorf("Episode must be nil without a series, got %+v", got.Episode)
+	}
+}
+
 func TestToDetail_Movie_NilEpisode(t *testing.T) {
 	item := jellyfin.Item{ID: "jf-abc", Name: "Test Movie", Type: jellyfin.ItemTypeMovie}
 

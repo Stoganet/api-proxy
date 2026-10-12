@@ -38,7 +38,7 @@ type Detail struct {
 	Progress *WatchProgress
 	Resume   *ResumeInfo
 	Start    *ResumeInfo
-	Episode  *EpisodeInfo // nil unless the item is an episode
+	Episode  *EpisodeInfo // nil unless the item is an episode of a known series
 }
 
 type PlayInfo struct {
@@ -102,7 +102,7 @@ type EpisodeInfo struct {
 	Series       SeriesRef
 	SeasonNumber int
 	Number       int
-	Next         *NextEpisode // nil on the last episode
+	Next         *NextEpisode // nil when there is no next episode or the lookup failed
 }
 
 type NextEpisode struct {

@@ -467,6 +467,23 @@ func TestService_GetItem_Episode_NextLookupFails_StillReturnsDetail(t *testing.T
 	}
 }
 
+func TestService_GetItem_EpisodeWithoutSeries_SkipsNextLookup(t *testing.T) {
+	item := testEpisodeItem()
+	item.SeriesID = ""
+	jf := &fakeJF{item: item}
+	svc := newSvc(jf)
+	d, err := svc.GetItem(context.Background(), "jf-user-1", "jf:ep3")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jf.nextEpisodeCalls != 0 {
+		t.Errorf("GetNextEpisode calls: got %d, want 0", jf.nextEpisodeCalls)
+	}
+	if d.Episode != nil {
+		t.Errorf("Episode must be nil without a series, got %+v", d.Episode)
+	}
+}
+
 func TestService_GetItem_Movie_SkipsNextLookup(t *testing.T) {
 	jf := &fakeJF{item: &jellyfin.Item{ID: "jf-1", Name: "Test Movie", Type: jellyfin.ItemTypeMovie}}
 	svc := newSvc(jf)

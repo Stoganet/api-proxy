@@ -202,7 +202,7 @@ components:
             progress: { $ref: '#/components/schemas/WatchProgress', nullable: true }
             resume:   { $ref: '#/components/schemas/ResumeInfo', nullable: true }
             start:    { $ref: '#/components/schemas/ResumeInfo', nullable: true }
-            episode:  { $ref: '#/components/schemas/EpisodeInfo', nullable: true, description: Set only when the item is an episode }
+            episode:  { $ref: '#/components/schemas/EpisodeInfo', nullable: true, description: Set only when the item is an episode of a known series }
 
     SeriesRef:
       type: object
@@ -218,7 +218,7 @@ components:
         series:        { $ref: '#/components/schemas/SeriesRef' }
         season_number: { type: integer }
         number:        { type: integer }
-        next:          { $ref: '#/components/schemas/NextEpisode', nullable: true, description: 'Episode after this one in series order, null on the last episode' }
+        next:          { $ref: '#/components/schemas/NextEpisode', nullable: true, description: 'Episode after this one in series order. Null when there is none or it could not be looked up' }
 
     NextEpisode:
       type: object

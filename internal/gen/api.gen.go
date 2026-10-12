@@ -146,7 +146,7 @@ type Episode struct {
 
 // EpisodeInfo defines model for EpisodeInfo.
 type EpisodeInfo struct {
-	// Next Episode after this one in series order, null on the last episode
+	// Next Episode after this one in series order. Null when there is none or it could not be looked up
 	Next         *NextEpisode `json:"next,omitempty"`
 	Number       int          `json:"number"`
 	SeasonNumber int          `json:"season_number"`
@@ -188,7 +188,7 @@ type LibraryDetail struct {
 	Backdrop *string      `json:"backdrop,omitempty"`
 	Cast     []CastMember `json:"cast"`
 
-	// Episode Set only when the item is an episode
+	// Episode Set only when the item is an episode of a known series
 	Episode  *EpisodeInfo   `json:"episode,omitempty"`
 	Genres   []string       `json:"genres"`
 	Id       string         `json:"id"`

@@ -81,7 +81,7 @@ func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, next *j
 }
 
 func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
-	if jf.Type != jellyfin.ItemTypeEpisode {
+	if jf.Type != jellyfin.ItemTypeEpisode || jf.SeriesID == "" {
 		return nil
 	}
 	info := &EpisodeInfo{
