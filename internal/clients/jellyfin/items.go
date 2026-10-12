@@ -14,8 +14,9 @@ const ticksPerMS = 10_000
 type ItemType string
 
 const (
-	ItemTypeMovie  ItemType = "Movie"
-	ItemTypeSeries ItemType = "Series"
+	ItemTypeMovie   ItemType = "Movie"
+	ItemTypeSeries  ItemType = "Series"
+	ItemTypeEpisode ItemType = "Episode"
 )
 
 type UserData struct {
@@ -38,6 +39,11 @@ type Item struct {
 	People          []Person
 	ChildCount      int
 	UserData        UserData
+	// Set only on episodes
+	SeriesID          string
+	SeriesName        string
+	IndexNumber       int
+	ParentIndexNumber int
 }
 
 type Person struct {
@@ -226,18 +232,22 @@ func (c *Client) GetItems(ctx context.Context, userID string, opts GetItemsOpts)
 }
 
 type jfItemResponse struct {
-	ID             string            `json:"Id"`
-	Name           string            `json:"Name"`
-	Type           ItemType          `json:"Type"`
-	ProductionYear int               `json:"ProductionYear"`
-	Overview       string            `json:"Overview"`
-	Genres         []string          `json:"Genres"`
-	RunTimeTicks   int64             `json:"RunTimeTicks"`
-	ImageTags      map[string]string `json:"ImageTags"`
-	BackdropTags   []string          `json:"BackdropImageTags"`
-	ProviderIDs    map[string]string `json:"ProviderIds"`
-	ChildCount     int               `json:"ChildCount"`
-	People         []struct {
+	ID                string            `json:"Id"`
+	Name              string            `json:"Name"`
+	Type              ItemType          `json:"Type"`
+	ProductionYear    int               `json:"ProductionYear"`
+	Overview          string            `json:"Overview"`
+	Genres            []string          `json:"Genres"`
+	RunTimeTicks      int64             `json:"RunTimeTicks"`
+	ImageTags         map[string]string `json:"ImageTags"`
+	BackdropTags      []string          `json:"BackdropImageTags"`
+	ProviderIDs       map[string]string `json:"ProviderIds"`
+	ChildCount        int               `json:"ChildCount"`
+	SeriesID          string            `json:"SeriesId"`
+	SeriesName        string            `json:"SeriesName"`
+	IndexNumber       int               `json:"IndexNumber"`
+	ParentIndexNumber int               `json:"ParentIndexNumber"`
+	People            []struct {
 		Name string `json:"Name"`
 		Type string `json:"Type"`
 	} `json:"People"`
@@ -253,19 +263,23 @@ func (r *jfItemResponse) toItem() *Item {
 		people[i] = Person{Name: p.Name, Role: p.Type}
 	}
 	return &Item{
-		ID:              r.ID,
-		Name:            r.Name,
-		Type:            r.Type,
-		Year:            r.ProductionYear,
-		Overview:        r.Overview,
-		Genres:          r.Genres,
-		Runtime:         r.RunTimeTicks,
-		PrimaryImageTag: r.ImageTags["Primary"],
-		ThumbImageTag:   r.ImageTags["Thumb"],
-		BackdropTags:    r.BackdropTags,
-		ProviderIDs:     r.ProviderIDs,
-		People:          people,
-		ChildCount:      r.ChildCount,
+		ID:                r.ID,
+		Name:              r.Name,
+		Type:              r.Type,
+		Year:              r.ProductionYear,
+		Overview:          r.Overview,
+		Genres:            r.Genres,
+		Runtime:           r.RunTimeTicks,
+		PrimaryImageTag:   r.ImageTags["Primary"],
+		ThumbImageTag:     r.ImageTags["Thumb"],
+		BackdropTags:      r.BackdropTags,
+		ProviderIDs:       r.ProviderIDs,
+		People:            people,
+		ChildCount:        r.ChildCount,
+		SeriesID:          r.SeriesID,
+		SeriesName:        r.SeriesName,
+		IndexNumber:       r.IndexNumber,
+		ParentIndexNumber: r.ParentIndexNumber,
 		UserData: UserData{
 			PlaybackPositionTicks: r.UserData.PlaybackPositionTicks,
 			Played:                r.UserData.Played,

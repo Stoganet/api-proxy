@@ -396,4 +396,53 @@ func TestGetLibraryId_MovieDetail_HasPlayAndProgress(t *testing.T) {
 	if resp.Resume != nil {
 		t.Errorf("movie must not have resume, got %+v", resp.Resume)
 	}
+	if resp.Episode != nil {
+		t.Errorf("movie must not have episode, got %+v", resp.Episode)
+	}
+}
+
+func TestGetLibraryId_EpisodeDetail_HasEpisodeInfo(t *testing.T) {
+	fc := &fakeLibrary{detail: &media.Detail{
+		Item: media.Item{
+			ID: "jf:ep3", Title: "Test Episode",
+			Type: media.TypeTV, State: media.StatePlayable,
+		},
+		Seasons: []media.Season{},
+		Episode: &media.EpisodeInfo{
+			Series:       media.SeriesRef{ID: "jf:show1", Title: "Test Show"},
+			SeasonNumber: 1,
+			Number:       3,
+			Next: &media.NextEpisode{
+				ID: "jf:ep4", SeasonNumber: 1, Number: 4, Title: "Next Episode",
+				Progress: &media.WatchProgress{PositionMS: 120_000},
+			},
+		},
+	}}
+
+	h := newLibraryServer(t, authedFakeAuth(), fc)
+	w := authedGet(t, h, "/library/jf:ep3")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d. body: %s", w.Code, w.Body.String())
+	}
+	var resp gen.LibraryDetail
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Episode == nil {
+		t.Fatal("episode must be set")
+	}
+	if resp.Episode.Series != (gen.SeriesRef{Id: "jf:show1", Title: "Test Show"}) {
+		t.Errorf("series: got %+v", resp.Episode.Series)
+	}
+	if resp.Episode.SeasonNumber != 1 || resp.Episode.Number != 3 {
+		t.Errorf("numbers: got season %d, episode %d", resp.Episode.SeasonNumber, resp.Episode.Number)
+	}
+	next := resp.Episode.Next
+	if next == nil || next.Id != "jf:ep4" || next.SeasonNumber != 1 || next.Number != 4 || next.Title != "Next Episode" {
+		t.Fatalf("next: got %+v", next)
+	}
+	if next.Progress == nil || next.Progress.PositionMs != 120_000 {
+		t.Errorf("next.progress: got %+v", next.Progress)
+	}
 }

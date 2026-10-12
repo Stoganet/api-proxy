@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 type Season struct {
@@ -104,6 +105,36 @@ func (c *Client) GetFirstEpisode(ctx context.Context, userID, seriesID string) (
 	}
 	ep := items[0].toEpisode()
 	return &ep, nil
+}
+
+// nextEpisodeLookahead is how many episodes GetNextEpisode reads, so a run of specials
+// after the current episode doesn't hide the next regular one.
+const nextEpisodeLookahead = 5
+
+// GetNextEpisode returns the episode after episodeID in series order, crossing into the next
+// season, or nil when episodeID is the last one. Skips specials, which GetSeasons also hides,
+// and missing episodes, which have no file to play.
+func (c *Client) GetNextEpisode(ctx context.Context, userID, seriesID, episodeID string) (*Episode, error) {
+	q := url.Values{}
+	q.Set("StartItemId", episodeID)
+	q.Set("Limit", strconv.Itoa(nextEpisodeLookahead))
+	q.Set("IsMissing", "false")
+	q.Set("Fields", "UserData")
+	items, err := c.fetchEpisodes(ctx, userID, seriesID, q)
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin GetNextEpisode: %w", err)
+	}
+	if len(items) == 0 || items[0].ID != episodeID {
+		return nil, nil
+	}
+	for _, item := range items[1:] {
+		if item.ParentIndexNumber == 0 {
+			continue // skip Specials
+		}
+		ep := item.toEpisode()
+		return &ep, nil
+	}
+	return nil, nil
 }
 
 func (c *Client) fetchEpisodes(ctx context.Context, userID, seriesID string, q url.Values) ([]jfEpisodeResponse, error) {

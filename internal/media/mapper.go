@@ -56,7 +56,7 @@ func toItem(jf jellyfin.Item, proxyBaseURL string) Item {
 	}
 }
 
-func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, proxyBaseURL string) Detail {
+func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, next *jellyfin.Episode, proxyBaseURL string) Detail {
 	cast := make([]CastMember, len(jf.People))
 	for i, p := range jf.People {
 		cast[i] = CastMember{Name: p.Name, Role: p.Role}
@@ -76,7 +76,29 @@ func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, proxyBa
 			SubtitleTracks: toSubtitleTracks(subtitleTracks),
 		},
 		Progress: toWatchProgress(jf.UserData),
+		Episode:  toEpisodeInfo(jf, next),
 	}
+}
+
+func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
+	if jf.Type != jellyfin.ItemTypeEpisode || jf.SeriesID == "" {
+		return nil
+	}
+	info := &EpisodeInfo{
+		Series:       SeriesRef{ID: "jf:" + jf.SeriesID, Title: jf.SeriesName},
+		SeasonNumber: jf.ParentIndexNumber,
+		Number:       jf.IndexNumber,
+	}
+	if next != nil {
+		info.Next = &NextEpisode{
+			ID:           "jf:" + next.ID,
+			SeasonNumber: next.ParentIndexNumber,
+			Number:       next.IndexNumber,
+			Title:        next.Name,
+			Progress:     toWatchProgress(next.UserData),
+		}
+	}
+	return info
 }
 
 func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, proxyBaseURL string) Detail {
@@ -184,15 +206,17 @@ func toResumeInfo(jf jellyfin.Episode, proxyBaseURL string) ResumeInfo {
 	}
 }
 
+// itemID uses the TMDB id only for movies and series, since an episode's TMDB id would
+// resolve to a different movie or show.
 func itemID(jf jellyfin.Item) string {
-	if tmdbID, ok := jf.ProviderIDs["Tmdb"]; ok && tmdbID != "" {
+	if tmdbID, ok := jf.ProviderIDs["Tmdb"]; ok && tmdbID != "" && jf.Type != jellyfin.ItemTypeEpisode {
 		return fmt.Sprintf("tmdb:%s:%s", itemType(jf.Type), tmdbID)
 	}
 	return fmt.Sprintf("jf:%s", jf.ID)
 }
 
 func itemType(jfType jellyfin.ItemType) Type {
-	if jfType == jellyfin.ItemTypeSeries {
+	if jfType == jellyfin.ItemTypeSeries || jfType == jellyfin.ItemTypeEpisode {
 		return TypeTV
 	}
 	return TypeMovie

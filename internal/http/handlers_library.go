@@ -201,6 +201,24 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 			detail.Resume.Thumbnail = &d.Resume.Thumbnail
 		}
 	}
+	if d.Episode != nil {
+		detail.Episode = &gen.EpisodeInfo{
+			Series:       gen.SeriesRef{Id: d.Episode.Series.ID, Title: d.Episode.Series.Title},
+			SeasonNumber: d.Episode.SeasonNumber,
+			Number:       d.Episode.Number,
+		}
+		if n := d.Episode.Next; n != nil {
+			detail.Episode.Next = &gen.NextEpisode{
+				Id:           n.ID,
+				SeasonNumber: n.SeasonNumber,
+				Number:       n.Number,
+				Title:        n.Title,
+			}
+			if n.Progress != nil {
+				detail.Episode.Next.Progress = &gen.WatchProgress{PositionMs: n.Progress.PositionMS, Played: n.Progress.Played}
+			}
+		}
+	}
 	if d.Start != nil {
 		detail.Start = &gen.ResumeInfo{
 			SeasonNumber:  d.Start.SeasonNumber,

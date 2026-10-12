@@ -25,7 +25,7 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 		},
 	}
 
-	got := toDetail(item, nil, "https://api.stoganet.com")
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
 
 	fields := []struct {
 		name string
@@ -100,7 +100,7 @@ func TestToDetail_SubtitleTracks_MappedFromJellyfin(t *testing.T) {
 		{Index: 2, Language: "eng", Title: "English", Codec: "subrip", IsDefault: true, IsForced: false, IsExternal: true},
 	}
 
-	got := toDetail(item, tracks, "https://api.stoganet.com")
+	got := toDetail(item, tracks, nil, "https://api.stoganet.com")
 
 	if len(got.Play.SubtitleTracks) != 1 {
 		t.Fatalf("SubtitleTracks: got %d, want 1", len(got.Play.SubtitleTracks))
@@ -115,7 +115,7 @@ func TestToDetail_SubtitleTracks_MappedFromJellyfin(t *testing.T) {
 func TestToDetail_NoSubtitleTracks_ReturnsEmptySlice(t *testing.T) {
 	item := jellyfin.Item{ID: "jf-abc", Type: jellyfin.ItemTypeMovie}
 
-	got := toDetail(item, nil, "https://api.stoganet.com")
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
 
 	if len(got.Play.SubtitleTracks) != 0 {
 		t.Errorf("SubtitleTracks: got %d, want 0", len(got.Play.SubtitleTracks))
@@ -130,7 +130,7 @@ func TestToDetail_SeriesNoTMDB_FallsBackToJFID(t *testing.T) {
 		Year: 2020,
 	}
 
-	got := toDetail(item, nil, "https://api.stoganet.com")
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
 
 	if got.ID != "jf:jf-xyz" {
 		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-xyz")
@@ -154,10 +154,114 @@ func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 		ProviderIDs: map[string]string{"Tmdb": "1396"},
 	}
 
-	got := toDetail(item, nil, "https://api.stoganet.com")
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
 
 	if got.ID != "tmdb:tv:1396" {
 		t.Errorf("ID: got %q, want %q", got.ID, "tmdb:tv:1396")
+	}
+}
+
+func TestToDetail_EpisodeWithTMDB_TVTypeAndJFID(t *testing.T) {
+	item := jellyfin.Item{
+		ID:          "jf-ep-1",
+		Name:        "Test Episode",
+		Type:        jellyfin.ItemTypeEpisode,
+		ProviderIDs: map[string]string{"Tmdb": "62085"},
+	}
+
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+	if got.ID != "jf:jf-ep-1" {
+		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-ep-1")
+	}
+	if got.Type != TypeTV {
+		t.Errorf("Type: got %q, want %q", got.Type, TypeTV)
+	}
+}
+
+func TestToDetail_Episode_HasSeriesAndNumbers(t *testing.T) {
+	item := jellyfin.Item{
+		ID:                "jf-ep-1",
+		Name:              "Test Episode",
+		Type:              jellyfin.ItemTypeEpisode,
+		SeriesID:          "jf-show-1",
+		SeriesName:        "Test Show",
+		IndexNumber:       3,
+		ParentIndexNumber: 1,
+	}
+
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+	want := EpisodeInfo{
+		Series:       SeriesRef{ID: "jf:jf-show-1", Title: "Test Show"},
+		SeasonNumber: 1,
+		Number:       3,
+	}
+	if got.Episode == nil || *got.Episode != want {
+		t.Errorf("Episode: got %+v, want %+v", got.Episode, want)
+	}
+}
+
+func TestToDetail_EpisodeWithNext_HasNextEpisode(t *testing.T) {
+	item := jellyfin.Item{
+		ID:                "jf-ep-1",
+		Type:              jellyfin.ItemTypeEpisode,
+		SeriesID:          "jf-show-1",
+		IndexNumber:       10,
+		ParentIndexNumber: 1,
+	}
+	next := &jellyfin.Episode{
+		ID:                "jf-ep-2",
+		Name:              "Next Episode",
+		IndexNumber:       1,
+		ParentIndexNumber: 2,
+		UserData:          jellyfin.UserData{PlaybackPositionTicks: 1_200_000_000},
+	}
+
+	got := toDetail(item, nil, next, "https://api.stoganet.com")
+
+	if got.Episode == nil || got.Episode.Next == nil {
+		t.Fatalf("Episode.Next must be set, got %+v", got.Episode)
+	}
+	n := got.Episode.Next
+	if n.ID != "jf:jf-ep-2" || n.SeasonNumber != 2 || n.Number != 1 || n.Title != "Next Episode" {
+		t.Errorf("Next: got %+v", n)
+	}
+	if n.Progress == nil || n.Progress.PositionMS != 120_000 {
+		t.Errorf("Next.Progress: got %+v", n.Progress)
+	}
+}
+
+func TestToDetail_EpisodeWithoutNext_NilNext(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-ep-1", Type: jellyfin.ItemTypeEpisode, SeriesID: "jf-show-1"}
+
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+	if got.Episode == nil {
+		t.Fatal("Episode must be set")
+	}
+	if got.Episode.Next != nil {
+		t.Errorf("Next must be nil, got %+v", got.Episode.Next)
+	}
+}
+
+func TestToDetail_EpisodeWithoutSeries_NilEpisode(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-ep-1", Type: jellyfin.ItemTypeEpisode, IndexNumber: 3, ParentIndexNumber: 1}
+
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+	if got.Episode != nil {
+		t.Errorf("Episode must be nil without a series, got %+v", got.Episode)
+	}
+}
+
+func TestToDetail_Movie_NilEpisode(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-abc", Name: "Test Movie", Type: jellyfin.ItemTypeMovie}
+
+	got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+	if got.Episode != nil {
+		t.Errorf("movie Episode must be nil, got %+v", got.Episode)
 	}
 }
 
@@ -280,7 +384,7 @@ func TestToDetail_Movie_HasPlayAndProgress(t *testing.T) {
 		Year: 1999, Runtime: 81_600_000_000,
 		UserData: jellyfin.UserData{PlaybackPositionTicks: 2_400_000_000, Played: false},
 	}
-	d := toDetail(jf, nil, "https://api.stoganet.com")
+	d := toDetail(jf, nil, nil, "https://api.stoganet.com")
 	if d.Play == nil {
 		t.Error("movie must have Play")
 	}

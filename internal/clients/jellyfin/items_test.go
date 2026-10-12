@@ -61,6 +61,37 @@ func TestGetItem_ReturnsItem(t *testing.T) {
 	}
 }
 
+func TestGetItem_Episode_ReturnsSeriesAndNumbers(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":                "ep-1",
+			"Name":              "Test Episode",
+			"Type":              "Episode",
+			"SeriesId":          "series-1",
+			"SeriesName":        "Test Show",
+			"IndexNumber":       3,
+			"ParentIndexNumber": 1,
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if item.SeriesID != "series-1" {
+		t.Errorf("SeriesID: got %q", item.SeriesID)
+	}
+	if item.SeriesName != "Test Show" {
+		t.Errorf("SeriesName: got %q", item.SeriesName)
+	}
+	if item.IndexNumber != 3 {
+		t.Errorf("IndexNumber: got %d", item.IndexNumber)
+	}
+	if item.ParentIndexNumber != 1 {
+		t.Errorf("ParentIndexNumber: got %d", item.ParentIndexNumber)
+	}
+}
+
 func TestGetItem_NotFound_ReturnsErrItemNotFound(t *testing.T) {
 	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
