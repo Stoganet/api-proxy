@@ -179,6 +179,39 @@ func TestToDetail_EpisodeWithTMDB_TVTypeAndJFID(t *testing.T) {
 	}
 }
 
+func TestToDetail_Episode_HasSeriesAndNumbers(t *testing.T) {
+	item := jellyfin.Item{
+		ID:                "jf-ep-1",
+		Name:              "Test Episode",
+		Type:              jellyfin.ItemTypeEpisode,
+		SeriesID:          "jf-show-1",
+		SeriesName:        "Test Show",
+		IndexNumber:       3,
+		ParentIndexNumber: 1,
+	}
+
+	got := toDetail(item, nil, "https://api.stoganet.com")
+
+	want := EpisodeInfo{
+		Series:       SeriesRef{ID: "jf:jf-show-1", Title: "Test Show"},
+		SeasonNumber: 1,
+		Number:       3,
+	}
+	if got.Episode == nil || *got.Episode != want {
+		t.Errorf("Episode: got %+v, want %+v", got.Episode, want)
+	}
+}
+
+func TestToDetail_Movie_NilEpisode(t *testing.T) {
+	item := jellyfin.Item{ID: "jf-abc", Name: "Test Movie", Type: jellyfin.ItemTypeMovie}
+
+	got := toDetail(item, nil, "https://api.stoganet.com")
+
+	if got.Episode != nil {
+		t.Errorf("movie Episode must be nil, got %+v", got.Episode)
+	}
+}
+
 func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	item := jellyfin.Item{
 		ID:              "jf-abc",

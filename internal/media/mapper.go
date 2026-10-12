@@ -76,6 +76,18 @@ func toDetail(jf jellyfin.Item, subtitleTracks []jellyfin.SubtitleTrack, proxyBa
 			SubtitleTracks: toSubtitleTracks(subtitleTracks),
 		},
 		Progress: toWatchProgress(jf.UserData),
+		Episode:  toEpisodeInfo(jf),
+	}
+}
+
+func toEpisodeInfo(jf jellyfin.Item) *EpisodeInfo {
+	if jf.Type != jellyfin.ItemTypeEpisode {
+		return nil
+	}
+	return &EpisodeInfo{
+		Series:       SeriesRef{ID: "jf:" + jf.SeriesID, Title: jf.SeriesName},
+		SeasonNumber: jf.ParentIndexNumber,
+		Number:       jf.IndexNumber,
 	}
 }
 

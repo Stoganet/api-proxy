@@ -38,6 +38,7 @@ type Detail struct {
 	Progress *WatchProgress
 	Resume   *ResumeInfo
 	Start    *ResumeInfo
+	Episode  *EpisodeInfo // nil unless the item is an episode
 }
 
 type PlayInfo struct {
@@ -90,6 +91,17 @@ type ResumeInfo struct {
 	Thumbnail     string
 	Play          PlayInfo
 	Progress      WatchProgress
+}
+
+type SeriesRef struct {
+	ID    string
+	Title string
+}
+
+type EpisodeInfo struct {
+	Series       SeriesRef
+	SeasonNumber int
+	Number       int
 }
 
 type CastMember struct {

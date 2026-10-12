@@ -202,6 +202,22 @@ components:
             progress: { $ref: '#/components/schemas/WatchProgress', nullable: true }
             resume:   { $ref: '#/components/schemas/ResumeInfo', nullable: true }
             start:    { $ref: '#/components/schemas/ResumeInfo', nullable: true }
+            episode:  { $ref: '#/components/schemas/EpisodeInfo', nullable: true, description: Set only when the item is an episode }
+
+    SeriesRef:
+      type: object
+      required: [id, title]
+      properties:
+        id:    { type: string }
+        title: { type: string }
+
+    EpisodeInfo:
+      type: object
+      required: [series, season_number, number]
+      properties:
+        series:        { $ref: '#/components/schemas/SeriesRef' }
+        season_number: { type: integer }
+        number:        { type: integer }
 
     LibraryListResponse:
       type: object
