@@ -184,15 +184,17 @@ func toResumeInfo(jf jellyfin.Episode, proxyBaseURL string) ResumeInfo {
 	}
 }
 
+// itemID uses the TMDB id only for movies and series, since an episode's TMDB id would
+// resolve to a different movie or show.
 func itemID(jf jellyfin.Item) string {
-	if tmdbID, ok := jf.ProviderIDs["Tmdb"]; ok && tmdbID != "" {
+	if tmdbID, ok := jf.ProviderIDs["Tmdb"]; ok && tmdbID != "" && jf.Type != jellyfin.ItemTypeEpisode {
 		return fmt.Sprintf("tmdb:%s:%s", itemType(jf.Type), tmdbID)
 	}
 	return fmt.Sprintf("jf:%s", jf.ID)
 }
 
 func itemType(jfType jellyfin.ItemType) Type {
-	if jfType == jellyfin.ItemTypeSeries {
+	if jfType == jellyfin.ItemTypeSeries || jfType == jellyfin.ItemTypeEpisode {
 		return TypeTV
 	}
 	return TypeMovie

@@ -161,6 +161,24 @@ func TestToDetail_TVShowWithTMDB_BuildsCorrectID(t *testing.T) {
 	}
 }
 
+func TestToDetail_EpisodeWithTMDB_TVTypeAndJFID(t *testing.T) {
+	item := jellyfin.Item{
+		ID:          "jf-ep-1",
+		Name:        "Test Episode",
+		Type:        jellyfin.ItemTypeEpisode,
+		ProviderIDs: map[string]string{"Tmdb": "62085"},
+	}
+
+	got := toDetail(item, nil, "https://api.stoganet.com")
+
+	if got.ID != "jf:jf-ep-1" {
+		t.Errorf("ID: got %q, want %q", got.ID, "jf:jf-ep-1")
+	}
+	if got.Type != TypeTV {
+		t.Errorf("Type: got %q, want %q", got.Type, TypeTV)
+	}
+}
+
 func TestToItem_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	item := jellyfin.Item{
 		ID:              "jf-abc",

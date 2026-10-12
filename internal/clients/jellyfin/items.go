@@ -14,8 +14,9 @@ const ticksPerMS = 10_000
 type ItemType string
 
 const (
-	ItemTypeMovie  ItemType = "Movie"
-	ItemTypeSeries ItemType = "Series"
+	ItemTypeMovie   ItemType = "Movie"
+	ItemTypeSeries  ItemType = "Series"
+	ItemTypeEpisode ItemType = "Episode"
 )
 
 type UserData struct {
