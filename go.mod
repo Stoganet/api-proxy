@@ -5,9 +5,9 @@ go 1.26.3
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
-	github.com/getkin/kin-openapi v0.149.0
-	github.com/go-chi/chi/v5 v5.3.2
-	github.com/go-chi/httprate v0.16.0
+	github.com/getkin/kin-openapi v0.150.0
+	github.com/go-chi/chi/v5 v5.4.0
+	github.com/go-chi/httprate v0.16.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/oapi-codegen/runtime v1.7.0
