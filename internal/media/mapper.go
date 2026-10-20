@@ -237,7 +237,7 @@ func backdrop(jf jellyfin.Item, proxyBaseURL string) string {
 	if len(jf.BackdropTags) > 0 {
 		return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
 	}
-	if jf.ParentBackdropItemID != "" && len(jf.ParentBackdropTags) > 0 {
+	if jf.Type == jellyfin.ItemTypeEpisode && jf.ParentBackdropItemID != "" && len(jf.ParentBackdropTags) > 0 {
 		return joinURL(proxyBaseURL, "images", jf.ParentBackdropItemID, "backdrop")
 	}
 	return ""

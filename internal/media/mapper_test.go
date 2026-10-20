@@ -67,23 +67,26 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	}
 }
 
-func TestToItem_Backdrop_PrefersOwnThenParent(t *testing.T) {
+func TestToItem_Backdrop_PrefersOwnThenParentForEpisodes(t *testing.T) {
 	cases := []struct {
 		name         string
+		itemType     jellyfin.ItemType
 		backdropTags []string
 		parentID     string
 		parentTags   []string
 		wantBackdrop string
 	}{
-		{"own backdrop", []string{"btag"}, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/ep-1/backdrop"},
-		{"parent backdrop", nil, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/series-1/backdrop"},
-		{"parent without art", nil, "series-1", nil, ""},
-		{"no images", nil, "", nil, ""},
+		{"own backdrop", jellyfin.ItemTypeEpisode, []string{"btag"}, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/ep-1/backdrop"},
+		{"parent backdrop", jellyfin.ItemTypeEpisode, nil, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/series-1/backdrop"},
+		{"parent without art", jellyfin.ItemTypeEpisode, nil, "series-1", nil, ""},
+		{"no images", jellyfin.ItemTypeEpisode, nil, "", nil, ""},
+		{"movie ignores parent", jellyfin.ItemTypeMovie, nil, "folder-1", []string{"ptag"}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			item := jellyfin.Item{
 				ID:                   "ep-1",
+				Type:                 tc.itemType,
 				BackdropTags:         tc.backdropTags,
 				ParentBackdropItemID: tc.parentID,
 				ParentBackdropTags:   tc.parentTags,
