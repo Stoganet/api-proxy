@@ -65,6 +65,21 @@ func TestGetEpisodes_ReturnsParsedEpisodes(t *testing.T) {
 	}
 }
 
+func TestGetEpisodes_ExcludesMissingEpisodes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("IsMissing"); got != "false" {
+			t.Errorf("IsMissing: got %q, want \"false\"", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	if _, err := c.GetEpisodes(context.Background(), "uid", "series1", 1); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetEpisodes_EmptyResult_ReturnsEmptySlice(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})

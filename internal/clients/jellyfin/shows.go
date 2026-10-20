@@ -79,6 +79,7 @@ func (c *Client) GetSeasons(ctx context.Context, userID, seriesID string) ([]Sea
 func (c *Client) GetEpisodes(ctx context.Context, userID, seriesID string, seasonNumber int) ([]Episode, error) {
 	q := url.Values{}
 	q.Set("SeasonNumber", fmt.Sprintf("%d", seasonNumber))
+	q.Set("IsMissing", "false")
 	q.Set("Fields", "Overview,UserData,RunTimeTicks")
 	items, err := c.fetchEpisodes(ctx, userID, seriesID, q)
 	if err != nil {
