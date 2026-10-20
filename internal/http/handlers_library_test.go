@@ -446,3 +446,42 @@ func TestGetLibraryId_EpisodeDetail_HasEpisodeInfo(t *testing.T) {
 		t.Errorf("next.progress: got %+v", next.Progress)
 	}
 }
+
+func TestGetLibraryId_EpisodeDetail_AirDate(t *testing.T) {
+	cases := []struct {
+		name    string
+		airDate string
+		want    any
+	}{
+		{"known date", "2008-01-20", "2008-01-20"},
+		{"unknown date", "", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fc := &fakeLibrary{detail: &media.Detail{
+				Item:    media.Item{ID: "jf:ep3", Title: "Test Episode", Type: media.TypeTV, State: media.StatePlayable},
+				Seasons: []media.Season{},
+				Episode: &media.EpisodeInfo{
+					Series:  media.SeriesRef{ID: "jf:show1", Title: "Test Show"},
+					AirDate: tc.airDate,
+				},
+			}}
+
+			h := newLibraryServer(t, authedFakeAuth(), fc)
+			w := authedGet(t, h, "/library/jf:ep3")
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("status: got %d. body: %s", w.Code, w.Body.String())
+			}
+			var resp struct {
+				Episode map[string]any `json:"episode"`
+			}
+			if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got := resp.Episode["air_date"]; got != tc.want {
+				t.Errorf("air_date: got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

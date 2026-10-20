@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const ticksPerMS = 10_000
@@ -25,25 +26,27 @@ type UserData struct {
 }
 
 type Item struct {
-	ID              string
-	Name            string
-	Type            ItemType
-	Year            int
-	Overview        string
-	Genres          []string
-	Runtime         int64
-	PrimaryImageTag string
-	ThumbImageTag   string
-	BackdropTags    []string
-	ProviderIDs     map[string]string
-	People          []Person
-	ChildCount      int
-	UserData        UserData
-	// Set only on episodes
-	SeriesID          string
-	SeriesName        string
-	IndexNumber       int
-	ParentIndexNumber int
+	ID                   string
+	Name                 string
+	Type                 ItemType
+	Year                 int
+	Overview             string
+	Genres               []string
+	Runtime              int64
+	PrimaryImageTag      string
+	ThumbImageTag        string
+	BackdropTags         []string
+	ProviderIDs          map[string]string
+	People               []Person
+	ChildCount           int
+	UserData             UserData
+	SeriesID             string
+	SeriesName           string
+	IndexNumber          int
+	ParentIndexNumber    int
+	ParentBackdropItemID string
+	ParentBackdropTags   []string
+	PremiereDate         time.Time
 }
 
 type Person struct {
@@ -241,6 +244,9 @@ type jfItemResponse struct {
 	RunTimeTicks      int64             `json:"RunTimeTicks"`
 	ImageTags         map[string]string `json:"ImageTags"`
 	BackdropTags      []string          `json:"BackdropImageTags"`
+	ParentBackdropID  string            `json:"ParentBackdropItemId"`
+	ParentBackdrops   []string          `json:"ParentBackdropImageTags"`
+	PremiereDate      string            `json:"PremiereDate"`
 	ProviderIDs       map[string]string `json:"ProviderIds"`
 	ChildCount        int               `json:"ChildCount"`
 	SeriesID          string            `json:"SeriesId"`
@@ -284,5 +290,21 @@ func (r *jfItemResponse) toItem() *Item {
 			PlaybackPositionTicks: r.UserData.PlaybackPositionTicks,
 			Played:                r.UserData.Played,
 		},
+		ParentBackdropItemID: r.ParentBackdropID,
+		ParentBackdropTags:   r.ParentBackdrops,
+		PremiereDate:         parseDate(r.PremiereDate),
 	}
+}
+
+// dateWithoutZone matches dates Jellyfin sends without "Z", which are read as UTC
+const dateWithoutZone = "2006-01-02T15:04:05.9999999"
+
+// parseDate returns the zero time for a missing or unparseable date so one odd field can't fail the whole item.
+func parseDate(s string) time.Time {
+	for _, layout := range []string{time.RFC3339Nano, dateWithoutZone} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }

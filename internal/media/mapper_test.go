@@ -2,6 +2,7 @@ package media
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 	"github.com/Stoganet/api-proxy/internal/clients/seerr"
@@ -63,6 +64,40 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	wantStreamURL := "https://api.stoganet.com/stream/jf-abc"
 	if got.Play.StreamURL != wantStreamURL {
 		t.Errorf("Play.StreamURL: got %q, want %q", got.Play.StreamURL, wantStreamURL)
+	}
+}
+
+func TestToItem_Backdrop_PrefersOwnThenParentForEpisodes(t *testing.T) {
+	cases := []struct {
+		name         string
+		itemType     jellyfin.ItemType
+		backdropTags []string
+		parentID     string
+		parentTags   []string
+		wantBackdrop string
+	}{
+		{"own backdrop", jellyfin.ItemTypeEpisode, []string{"btag"}, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/ep-1/backdrop"},
+		{"parent backdrop", jellyfin.ItemTypeEpisode, nil, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/series-1/backdrop"},
+		{"parent without art", jellyfin.ItemTypeEpisode, nil, "series-1", nil, ""},
+		{"no images", jellyfin.ItemTypeEpisode, nil, "", nil, ""},
+		{"movie ignores parent", jellyfin.ItemTypeMovie, nil, "folder-1", []string{"ptag"}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := jellyfin.Item{
+				ID:                   "ep-1",
+				Type:                 tc.itemType,
+				BackdropTags:         tc.backdropTags,
+				ParentBackdropItemID: tc.parentID,
+				ParentBackdropTags:   tc.parentTags,
+			}
+
+			got := toItem(item, "https://api.stoganet.com")
+
+			if got.Backdrop != tc.wantBackdrop {
+				t.Errorf("Backdrop: got %q, want %q", got.Backdrop, tc.wantBackdrop)
+			}
+		})
 	}
 }
 
@@ -535,6 +570,38 @@ func TestStateFromSeerrMediaInfo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := stateFromSeerrMediaInfo(tc.mi); got != tc.want {
 				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestToDetail_Episode_AirDate(t *testing.T) {
+	cases := []struct {
+		name     string
+		premiere time.Time
+		want     string
+	}{
+		{"known date", time.Date(2008, time.January, 20, 0, 0, 0, 0, time.UTC), "2008-01-20"},
+		{"local midnight east of UTC", time.Date(2008, time.January, 19, 22, 0, 0, 0, time.UTC), "2008-01-20"},
+		{"local midnight west of UTC", time.Date(2008, time.January, 20, 5, 0, 0, 0, time.UTC), "2008-01-20"},
+		{"unknown date", time.Time{}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := jellyfin.Item{
+				ID:           "jf-ep-1",
+				Type:         jellyfin.ItemTypeEpisode,
+				SeriesID:     "jf-show-1",
+				PremiereDate: tc.premiere,
+			}
+
+			got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+			if got.Episode == nil {
+				t.Fatal("Episode: got nil")
+			}
+			if got.Episode.AirDate != tc.want {
+				t.Errorf("AirDate: got %q, want %q", got.Episode.AirDate, tc.want)
 			}
 		})
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 	"github.com/Stoganet/api-proxy/internal/clients/seerr"
@@ -88,6 +89,7 @@ func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
 		Series:       SeriesRef{ID: "jf:" + jf.SeriesID, Title: jf.SeriesName},
 		SeasonNumber: jf.ParentIndexNumber,
 		Number:       jf.IndexNumber,
+		AirDate:      airDate(jf.PremiereDate),
 	}
 	if next != nil {
 		info.Next = &NextEpisode{
@@ -99,6 +101,14 @@ func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
 		}
 	}
 	return info
+}
+
+// airDate rounds to the nearest day because Jellyfin may store a date as local midnight, e.g. 22:00Z the day before.
+func airDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Add(12 * time.Hour).Format(time.DateOnly)
 }
 
 func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, proxyBaseURL string) Detail {
@@ -222,11 +232,15 @@ func itemType(jfType jellyfin.ItemType) Type {
 	return TypeMovie
 }
 
+// backdrop falls back to the parent's art because episodes rarely have their own, so they show the series backdrop.
 func backdrop(jf jellyfin.Item, proxyBaseURL string) string {
-	if len(jf.BackdropTags) == 0 {
-		return ""
+	if len(jf.BackdropTags) > 0 {
+		return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
 	}
-	return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
+	if jf.Type == jellyfin.ItemTypeEpisode && jf.ParentBackdropItemID != "" && len(jf.ParentBackdropTags) > 0 {
+		return joinURL(proxyBaseURL, "images", jf.ParentBackdropItemID, "backdrop")
+	}
+	return ""
 }
 
 // thumb picks the card image: Jellyfin's thumb art (which has the title printed in it) when the

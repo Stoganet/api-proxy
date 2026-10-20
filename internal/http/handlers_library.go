@@ -207,6 +207,9 @@ func toGenDetail(d *media.Detail) gen.LibraryDetail {
 			SeasonNumber: d.Episode.SeasonNumber,
 			Number:       d.Episode.Number,
 		}
+		if d.Episode.AirDate != "" {
+			detail.Episode.AirDate = &d.Episode.AirDate
+		}
 		if n := d.Episode.Next; n != nil {
 			detail.Episode.Next = &gen.NextEpisode{
 				Id:           n.ID,

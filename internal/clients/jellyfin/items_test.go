@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func newItemsClient(t *testing.T, handler http.HandlerFunc) *Client {
@@ -89,6 +90,86 @@ func TestGetItem_Episode_ReturnsSeriesAndNumbers(t *testing.T) {
 	}
 	if item.ParentIndexNumber != 1 {
 		t.Errorf("ParentIndexNumber: got %d", item.ParentIndexNumber)
+	}
+}
+
+func TestGetItem_Episode_ReturnsParentBackdrop(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":                      "ep-1",
+			"Type":                    "Episode",
+			"ParentBackdropItemId":    "series-1",
+			"ParentBackdropImageTags": []string{"btag"},
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if item.ParentBackdropItemID != "series-1" {
+		t.Errorf("ParentBackdropItemID: got %q", item.ParentBackdropItemID)
+	}
+	if len(item.ParentBackdropTags) != 1 || item.ParentBackdropTags[0] != "btag" {
+		t.Errorf("ParentBackdropTags: got %v", item.ParentBackdropTags)
+	}
+}
+
+func TestGetItem_Episode_ReturnsPremiereDate(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":           "ep-1",
+			"Type":         "Episode",
+			"PremiereDate": "2008-01-20T00:00:00.0000000Z",
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := time.Date(2008, time.January, 20, 0, 0, 0, 0, time.UTC)
+	if !item.PremiereDate.Equal(want) {
+		t.Errorf("PremiereDate: got %v, want %v", item.PremiereDate, want)
+	}
+}
+
+func TestGetItem_PremiereDateWithoutZone_ReadsAsUTC(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":           "ep-1",
+			"PremiereDate": "2008-01-20T00:00:00.0000000",
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := time.Date(2008, time.January, 20, 0, 0, 0, 0, time.UTC)
+	if !item.PremiereDate.Equal(want) {
+		t.Errorf("PremiereDate: got %v, want %v", item.PremiereDate, want)
+	}
+}
+
+func TestGetItem_UnparseablePremiereDate_ReturnsZeroDate(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":           "ep-1",
+			"Name":         "Pilot",
+			"PremiereDate": "20 Jan 2008",
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if item.Name != "Pilot" {
+		t.Errorf("Name: got %q", item.Name)
+	}
+	if !item.PremiereDate.IsZero() {
+		t.Errorf("PremiereDate: got %v, want zero", item.PremiereDate)
 	}
 }
 
