@@ -102,6 +102,7 @@ type EpisodeInfo struct {
 	Series       SeriesRef
 	SeasonNumber int
 	Number       int
+	AirDate      string       // YYYY-MM-DD, empty when unknown
 	Next         *NextEpisode // nil when there is no next episode or the lookup failed
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const ticksPerMS = 10_000
@@ -45,6 +46,7 @@ type Item struct {
 	ParentIndexNumber    int
 	ParentBackdropItemID string
 	ParentBackdropTags   []string
+	PremiereDate         time.Time
 }
 
 type Person struct {
@@ -244,6 +246,7 @@ type jfItemResponse struct {
 	BackdropTags      []string          `json:"BackdropImageTags"`
 	ParentBackdropID  string            `json:"ParentBackdropItemId"`
 	ParentBackdrops   []string          `json:"ParentBackdropImageTags"`
+	PremiereDate      string            `json:"PremiereDate"`
 	ProviderIDs       map[string]string `json:"ProviderIds"`
 	ChildCount        int               `json:"ChildCount"`
 	SeriesID          string            `json:"SeriesId"`
@@ -289,5 +292,15 @@ func (r *jfItemResponse) toItem() *Item {
 		},
 		ParentBackdropItemID: r.ParentBackdropID,
 		ParentBackdropTags:   r.ParentBackdrops,
+		PremiereDate:         parseDate(r.PremiereDate),
 	}
+}
+
+// parseDate returns the zero time for a missing or unparseable date so one odd field can't fail the whole item.
+func parseDate(s string) time.Time {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }

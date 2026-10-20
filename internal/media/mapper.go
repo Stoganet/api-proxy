@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 	"github.com/Stoganet/api-proxy/internal/clients/seerr"
@@ -88,6 +89,7 @@ func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
 		Series:       SeriesRef{ID: "jf:" + jf.SeriesID, Title: jf.SeriesName},
 		SeasonNumber: jf.ParentIndexNumber,
 		Number:       jf.IndexNumber,
+		AirDate:      airDate(jf.PremiereDate),
 	}
 	if next != nil {
 		info.Next = &NextEpisode{
@@ -99,6 +101,13 @@ func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
 		}
 	}
 	return info
+}
+
+func airDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.DateOnly)
 }
 
 func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, proxyBaseURL string) Detail {

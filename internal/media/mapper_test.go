@@ -2,6 +2,7 @@ package media
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
 	"github.com/Stoganet/api-proxy/internal/clients/seerr"
@@ -566,6 +567,36 @@ func TestStateFromSeerrMediaInfo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := stateFromSeerrMediaInfo(tc.mi); got != tc.want {
 				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestToDetail_Episode_AirDate(t *testing.T) {
+	cases := []struct {
+		name     string
+		premiere time.Time
+		want     string
+	}{
+		{"known date", time.Date(2008, time.January, 20, 0, 0, 0, 0, time.UTC), "2008-01-20"},
+		{"unknown date", time.Time{}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := jellyfin.Item{
+				ID:           "jf-ep-1",
+				Type:         jellyfin.ItemTypeEpisode,
+				SeriesID:     "jf-show-1",
+				PremiereDate: tc.premiere,
+			}
+
+			got := toDetail(item, nil, nil, "https://api.stoganet.com")
+
+			if got.Episode == nil {
+				t.Fatal("Episode: got nil")
+			}
+			if got.Episode.AirDate != tc.want {
+				t.Errorf("AirDate: got %q, want %q", got.Episode.AirDate, tc.want)
 			}
 		})
 	}

@@ -218,6 +218,7 @@ components:
         series:        { $ref: '#/components/schemas/SeriesRef' }
         season_number: { type: integer }
         number:        { type: integer }
+        air_date:      { type: string, nullable: true, description: 'First air date as YYYY-MM-DD. Null when unknown' }
         next:          { $ref: '#/components/schemas/NextEpisode', nullable: true, description: 'Episode after this one in series order. Null when there is none or it could not be looked up' }
 
     NextEpisode:
