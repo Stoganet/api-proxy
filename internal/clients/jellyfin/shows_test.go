@@ -36,6 +36,21 @@ func TestGetSeasons_ReturnsParsedSeasons(t *testing.T) {
 	}
 }
 
+func TestGetSeasons_ExcludesMissingSeasons(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("IsMissing"); got != "false" {
+			t.Errorf("IsMissing: got %q, want \"false\"", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	if _, err := c.GetSeasons(context.Background(), "uid", "series1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetEpisodes_ReturnsParsedEpisodes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("SeasonNumber") != "1" {
@@ -171,6 +186,21 @@ func TestGetFirstEpisode_ReturnsEpisode(t *testing.T) {
 	}
 	if ep.ID != "ep1" || ep.IndexNumber != 1 || ep.Name != "Pilot" {
 		t.Errorf("episode mismatch: %+v", ep)
+	}
+}
+
+func TestGetFirstEpisode_ExcludesMissingEpisodes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("IsMissing"); got != "false" {
+			t.Errorf("IsMissing: got %q, want \"false\"", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []map[string]any{}})
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, hc: srv.Client()}
+	if _, err := c.GetFirstEpisode(context.Background(), "uid", "series1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
