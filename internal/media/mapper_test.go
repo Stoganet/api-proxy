@@ -66,6 +66,37 @@ func TestToDetail_MovieWithTMDB_BuildsCorrectShape(t *testing.T) {
 	}
 }
 
+func TestToItem_Backdrop_PrefersOwnThenParent(t *testing.T) {
+	cases := []struct {
+		name         string
+		backdropTags []string
+		parentID     string
+		parentTags   []string
+		wantBackdrop string
+	}{
+		{"own backdrop", []string{"btag"}, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/ep-1/backdrop"},
+		{"parent backdrop", nil, "series-1", []string{"ptag"}, "https://api.stoganet.com/images/series-1/backdrop"},
+		{"parent without art", nil, "series-1", nil, ""},
+		{"no images", nil, "", nil, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := jellyfin.Item{
+				ID:                   "ep-1",
+				BackdropTags:         tc.backdropTags,
+				ParentBackdropItemID: tc.parentID,
+				ParentBackdropTags:   tc.parentTags,
+			}
+
+			got := toItem(item, "https://api.stoganet.com")
+
+			if got.Backdrop != tc.wantBackdrop {
+				t.Errorf("Backdrop: got %q, want %q", got.Backdrop, tc.wantBackdrop)
+			}
+		})
+	}
+}
+
 func TestToItem_Thumb_PrefersThumbArtThenSmallBackdrop(t *testing.T) {
 	cases := []struct {
 		name         string

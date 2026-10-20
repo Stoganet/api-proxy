@@ -92,6 +92,28 @@ func TestGetItem_Episode_ReturnsSeriesAndNumbers(t *testing.T) {
 	}
 }
 
+func TestGetItem_Episode_ReturnsParentBackdrop(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":                      "ep-1",
+			"Type":                    "Episode",
+			"ParentBackdropItemId":    "series-1",
+			"ParentBackdropImageTags": []string{"btag"},
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if item.ParentBackdropItemID != "series-1" {
+		t.Errorf("ParentBackdropItemID: got %q", item.ParentBackdropItemID)
+	}
+	if len(item.ParentBackdropTags) != 1 || item.ParentBackdropTags[0] != "btag" {
+		t.Errorf("ParentBackdropTags: got %v", item.ParentBackdropTags)
+	}
+}
+
 func TestGetItem_NotFound_ReturnsErrItemNotFound(t *testing.T) {
 	c := newItemsClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)

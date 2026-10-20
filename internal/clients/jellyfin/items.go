@@ -25,25 +25,26 @@ type UserData struct {
 }
 
 type Item struct {
-	ID              string
-	Name            string
-	Type            ItemType
-	Year            int
-	Overview        string
-	Genres          []string
-	Runtime         int64
-	PrimaryImageTag string
-	ThumbImageTag   string
-	BackdropTags    []string
-	ProviderIDs     map[string]string
-	People          []Person
-	ChildCount      int
-	UserData        UserData
-	// Set only on episodes
-	SeriesID          string
-	SeriesName        string
-	IndexNumber       int
-	ParentIndexNumber int
+	ID                   string
+	Name                 string
+	Type                 ItemType
+	Year                 int
+	Overview             string
+	Genres               []string
+	Runtime              int64
+	PrimaryImageTag      string
+	ThumbImageTag        string
+	BackdropTags         []string
+	ProviderIDs          map[string]string
+	People               []Person
+	ChildCount           int
+	UserData             UserData
+	SeriesID             string
+	SeriesName           string
+	IndexNumber          int
+	ParentIndexNumber    int
+	ParentBackdropItemID string
+	ParentBackdropTags   []string
 }
 
 type Person struct {
@@ -241,6 +242,8 @@ type jfItemResponse struct {
 	RunTimeTicks      int64             `json:"RunTimeTicks"`
 	ImageTags         map[string]string `json:"ImageTags"`
 	BackdropTags      []string          `json:"BackdropImageTags"`
+	ParentBackdropID  string            `json:"ParentBackdropItemId"`
+	ParentBackdrops   []string          `json:"ParentBackdropImageTags"`
 	ProviderIDs       map[string]string `json:"ProviderIds"`
 	ChildCount        int               `json:"ChildCount"`
 	SeriesID          string            `json:"SeriesId"`
@@ -284,5 +287,7 @@ func (r *jfItemResponse) toItem() *Item {
 			PlaybackPositionTicks: r.UserData.PlaybackPositionTicks,
 			Played:                r.UserData.Played,
 		},
+		ParentBackdropItemID: r.ParentBackdropID,
+		ParentBackdropTags:   r.ParentBackdrops,
 	}
 }

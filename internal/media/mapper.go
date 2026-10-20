@@ -222,11 +222,15 @@ func itemType(jfType jellyfin.ItemType) Type {
 	return TypeMovie
 }
 
+// backdrop falls back to the parent's art because episodes rarely have their own, so they show the series backdrop.
 func backdrop(jf jellyfin.Item, proxyBaseURL string) string {
-	if len(jf.BackdropTags) == 0 {
-		return ""
+	if len(jf.BackdropTags) > 0 {
+		return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
 	}
-	return joinURL(proxyBaseURL, "images", jf.ID, "backdrop")
+	if jf.ParentBackdropItemID != "" && len(jf.ParentBackdropTags) > 0 {
+		return joinURL(proxyBaseURL, "images", jf.ParentBackdropItemID, "backdrop")
+	}
+	return ""
 }
 
 // thumb picks the card image: Jellyfin's thumb art (which has the title printed in it) when the
