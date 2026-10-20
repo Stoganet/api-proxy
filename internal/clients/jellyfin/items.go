@@ -296,11 +296,15 @@ func (r *jfItemResponse) toItem() *Item {
 	}
 }
 
+// dateWithoutZone matches dates Jellyfin sends without "Z", which are read as UTC
+const dateWithoutZone = "2006-01-02T15:04:05.9999999"
+
 // parseDate returns the zero time for a missing or unparseable date so one odd field can't fail the whole item.
 func parseDate(s string) time.Time {
-	t, err := time.Parse(time.RFC3339Nano, s)
-	if err != nil {
-		return time.Time{}
+	for _, layout := range []string{time.RFC3339Nano, dateWithoutZone} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t
+		}
 	}
-	return t
+	return time.Time{}
 }

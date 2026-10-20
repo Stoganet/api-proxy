@@ -579,6 +579,8 @@ func TestToDetail_Episode_AirDate(t *testing.T) {
 		want     string
 	}{
 		{"known date", time.Date(2008, time.January, 20, 0, 0, 0, 0, time.UTC), "2008-01-20"},
+		{"local midnight east of UTC", time.Date(2008, time.January, 19, 22, 0, 0, 0, time.UTC), "2008-01-20"},
+		{"local midnight west of UTC", time.Date(2008, time.January, 20, 5, 0, 0, 0, time.UTC), "2008-01-20"},
 		{"unknown date", time.Time{}, ""},
 	}
 	for _, tc := range cases {

@@ -134,6 +134,24 @@ func TestGetItem_Episode_ReturnsPremiereDate(t *testing.T) {
 	}
 }
 
+func TestGetItem_PremiereDateWithoutZone_ReadsAsUTC(t *testing.T) {
+	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Id":           "ep-1",
+			"PremiereDate": "2008-01-20T00:00:00.0000000",
+		})
+	})
+
+	item, err := c.GetItem(context.Background(), "uid-1", "ep-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := time.Date(2008, time.January, 20, 0, 0, 0, 0, time.UTC)
+	if !item.PremiereDate.Equal(want) {
+		t.Errorf("PremiereDate: got %v, want %v", item.PremiereDate, want)
+	}
+}
+
 func TestGetItem_UnparseablePremiereDate_ReturnsZeroDate(t *testing.T) {
 	c := newItemsClient(t, func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

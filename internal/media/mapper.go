@@ -103,11 +103,12 @@ func toEpisodeInfo(jf jellyfin.Item, next *jellyfin.Episode) *EpisodeInfo {
 	return info
 }
 
+// airDate rounds to the nearest day because Jellyfin may store a date as local midnight, e.g. 22:00Z the day before.
 func airDate(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.UTC().Format(time.DateOnly)
+	return t.UTC().Add(12 * time.Hour).Format(time.DateOnly)
 }
 
 func toSeriesDetail(jf jellyfin.Item, jfSeasons []jellyfin.Season, nextUp *jellyfin.Episode, firstEpisode *jellyfin.Episode, proxyBaseURL string) Detail {
