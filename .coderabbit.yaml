@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: chill
+  high_level_summary: false
+  poem: false
+  sequence_diagrams: false
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_usernames:
+      - "dependabot[bot]"
+  path_filters:
+    - "!go.sum"
+    - "!internal/gen/**"
+  tools:
+    golangci-lint:
+      enabled: false
