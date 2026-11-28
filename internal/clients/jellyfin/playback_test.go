@@ -3,6 +3,7 @@ package jellyfin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,7 +69,7 @@ func TestGetSubtitleTracks_NotFound_ReturnsErrItemNotFound(t *testing.T) {
 	})
 
 	_, err := c.GetSubtitleTracks(context.Background(), "uid-1", "missing")
-	if err != ErrItemNotFound {
+	if !errors.Is(err, ErrItemNotFound) {
 		t.Errorf("got %v, want ErrItemNotFound", err)
 	}
 }

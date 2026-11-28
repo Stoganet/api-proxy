@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"os"
@@ -20,11 +22,16 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	if err := run(logger); err != nil {
+		logger.Error("startup", "err", err)
+		os.Exit(2)
+	}
+}
 
+func run(logger *slog.Logger) error {
 	cfg, err := config.LoadFromEnv()
 	if err != nil {
-		logger.Error("config", "err", err)
-		os.Exit(2)
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -32,8 +39,7 @@ func main() {
 
 	database, err := db.Open(ctx, cfg.DBPath)
 	if err != nil {
-		logger.Error("db open", "err", err)
-		os.Exit(2)
+		return fmt.Errorf("open db: %w", err)
 	}
 	defer database.Close()
 
@@ -61,7 +67,7 @@ func main() {
 
 	go func() {
 		logger.Info("stoganet listening", "addr", cfg.ListenAddr)
-		if err := httpSrv.ListenAndServe(); err != nil && err != stdhttp.ErrServerClosed {
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, stdhttp.ErrServerClosed) {
 			logger.Error("listen", "err", err)
 			cancel()
 		}
@@ -74,4 +80,5 @@ func main() {
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("shutdown", "err", err)
 	}
+	return nil
 }

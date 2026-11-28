@@ -6,6 +6,8 @@ linters:
   enable:
     - bodyclose
     - errcheck
+    - errorlint
+    - gocritic
     - gosec
     - govet
     - ineffassign

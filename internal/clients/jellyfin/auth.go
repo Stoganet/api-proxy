@@ -40,7 +40,7 @@ func (c *Client) AuthenticateByName(ctx context.Context, username, password stri
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
 	defer resp.Body.Close()
 
@@ -60,7 +60,7 @@ func (c *Client) AuthenticateByName(ctx context.Context, username, password stri
 		} `json:"User"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("%w: decode: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: decode: %w", ErrUpstreamUnavailable, err)
 	}
 	return &AuthResult{
 		AccessToken: parsed.AccessToken,

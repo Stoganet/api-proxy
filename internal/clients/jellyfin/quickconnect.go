@@ -32,7 +32,7 @@ func (c *Client) QuickConnectInitiate(ctx context.Context) (*QuickConnectInitiat
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -43,7 +43,7 @@ func (c *Client) QuickConnectInitiate(ctx context.Context) (*QuickConnectInitiat
 		Code   string `json:"Code"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("%w: decode: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: decode: %w", ErrUpstreamUnavailable, err)
 	}
 	return &QuickConnectInitiation{Secret: parsed.Secret, Code: parsed.Code}, nil
 }
@@ -69,7 +69,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
 	defer resp.Body.Close()
 
@@ -81,7 +81,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 		Authenticated bool `json:"Authenticated"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&state); err != nil {
-		return nil, fmt.Errorf("%w: decode Connect: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: decode Connect: %w", ErrUpstreamUnavailable, err)
 	}
 	if !state.Authenticated {
 		return nil, ErrQuickConnectPending
@@ -105,7 +105,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 
 	resp2, err := c.hc.Do(req2)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
 	defer resp2.Body.Close()
 
@@ -121,7 +121,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 		} `json:"User"`
 	}
 	if err := json.NewDecoder(resp2.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("%w: decode auth: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: decode auth: %w", ErrUpstreamUnavailable, err)
 	}
 	return &AuthResult{
 		AccessToken: parsed.AccessToken,
