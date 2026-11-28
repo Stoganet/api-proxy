@@ -10,8 +10,8 @@ require (
 	github.com/go-chi/httprate v0.16.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
-	github.com/oapi-codegen/runtime v1.9.0
-	modernc.org/sqlite v1.62.0
+	github.com/oapi-codegen/runtime v1.9.1
+	modernc.org/sqlite v1.63.0
 )
 
 require (
