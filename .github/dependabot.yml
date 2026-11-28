@@ -6,6 +6,8 @@ updates:
     schedule:
       interval: weekly
       day: saturday
+    cooldown:
+      default-days: 7
     groups:
       go-dependencies:
         update-types:
@@ -19,6 +21,8 @@ updates:
     schedule:
       interval: weekly
       day: saturday
+    cooldown:
+      default-days: 7
     groups:
       docker-images:
         update-types:
@@ -32,6 +36,8 @@ updates:
     schedule:
       interval: weekly
       day: saturday
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         update-types:

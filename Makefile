@@ -1,6 +1,7 @@
-.PHONY: gen test lint build run tidy
+.PHONY: gen test lint build vuln run tidy
 
 GO ?= go
+GOVULNCHECK_VERSION ?= v1.9.0
 GOVERSION := $(shell awk '/^go /{print $$2}' go.mod | cut -d. -f1,2)
 
 # Runs inside a Linux container matching go.mod's version so the embedded-spec output (gzip,
@@ -19,6 +20,9 @@ lint:
 
 build:
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w" -o dist/stoganet ./cmd/stoganet
+
+vuln:
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 run:
 	$(GO) run ./cmd/stoganet
