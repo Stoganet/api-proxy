@@ -1,6 +1,6 @@
 # stoganet
 
-The Stoganet core: one API for the client apps, in front of Jellyfin and Seerr.
+Backend API for the Stoganet client apps, in front of Jellyfin and Seerr.
 
 ## Rules
 
