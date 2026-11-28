@@ -1,12 +1,15 @@
-## Summary
+## What
 
-<!-- 1-3 sentences on what this PR does and why. -->
+<!-- What the change does, as behaviour. -->
+
+## Why
+
+<!-- The problem or motivation. -->
 
 ## Changes
 
-<!-- Bullet list of notable changes. -->
+<!-- One bullet per logical change, leading with its file paths. -->
 
-## Test plan
+## Related work
 
-- [ ]
-- [ ]
+<!-- Optional. Closes #N, or stoganet/<repo>#N for a counterpart PR in another repo. -->
