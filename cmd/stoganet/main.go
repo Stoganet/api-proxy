@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
-	"github.com/Stoganet/api-proxy/internal/clients/seerr"
-	"github.com/Stoganet/api-proxy/internal/config"
-	"github.com/Stoganet/api-proxy/internal/db"
-	apihttp "github.com/Stoganet/api-proxy/internal/http"
-	"github.com/Stoganet/api-proxy/internal/media"
+	"github.com/stoganet/stoganet/internal/auth"
+	"github.com/stoganet/stoganet/internal/clients/jellyfin"
+	"github.com/stoganet/stoganet/internal/clients/seerr"
+	"github.com/stoganet/stoganet/internal/config"
+	"github.com/stoganet/stoganet/internal/db"
+	apihttp "github.com/stoganet/stoganet/internal/http"
+	"github.com/stoganet/stoganet/internal/media"
 )
 
 func main() {
@@ -60,7 +60,7 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("api-proxy listening", "addr", cfg.ListenAddr)
+		logger.Info("stoganet listening", "addr", cfg.ListenAddr)
 		if err := httpSrv.ListenAndServe(); err != nil && err != stdhttp.ErrServerClosed {
 			logger.Error("listen", "err", err)
 			cancel()

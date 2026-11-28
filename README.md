@@ -1,4 +1,4 @@
-# Stoganet API Proxy
+# Stoganet core
 
 Single HTTP/JSON API that aggregates [Jellyfin](https://jellyfin.org) (and eventually Sonarr, Radarr, qBittorrent) behind one surface for Stoganet client apps (Android TV, mobile, web).
 
@@ -15,7 +15,7 @@ flowchart LR
     Web[Web / Mobile]
   end
 
-  subgraph proxy["cmd/api-proxy"]
+  subgraph proxy["cmd/stoganet"]
     Auth[JWT auth middleware]
     Library[Library service]
     Stream[Stream proxy]
@@ -80,7 +80,7 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-  cmd["cmd/api-proxy<br/>wiring + config"]
+  cmd["cmd/stoganet<br/>wiring + config"]
   httpPkg["internal/http<br/>handlers, middleware, stream proxy"]
   gen["internal/gen<br/>oapi-codegen output — do not edit"]
   media["internal/media<br/>domain types, service, mapper"]
@@ -228,7 +228,7 @@ Error codes: `invalid_credentials`, `account_locked`, `token_expired`, `token_in
 | Path | What's there |
 |------|-------------|
 | [`api/openapi.yaml`](./api/openapi.yaml) | OpenAPI spec; source of truth for all types and routes |
-| [`cmd/api-proxy/`](./cmd/api-proxy) | Binary entrypoint: config, wiring, graceful shutdown |
+| [`cmd/stoganet/`](./cmd/stoganet) | Binary entrypoint: config, wiring, graceful shutdown |
 | [`internal/gen/`](./internal/gen) | Code-generated server stubs and types — do not edit |
 | [`internal/auth/`](./internal/auth) | JWT issue/verify, refresh token store, Jellyfin login adapter |
 | [`internal/media/`](./internal/media) | Domain types, catalog ID translation, service, mapper |
@@ -256,7 +256,7 @@ export JELLYFIN_URL=http://localhost:8096
 export JELLYFIN_API_KEY=your-api-key
 export PROXY_BASE_URL=http://localhost:8080
 export JWT_SIGNING_KEY=$(openssl rand -hex 32)
-export DB_PATH=./api-proxy.sqlite
+export DB_PATH=./stoganet.sqlite
 export LISTEN_ADDR=:8080
 
 make run
@@ -270,7 +270,7 @@ make run
 | `JELLYFIN_API_KEY` | yes | Jellyfin API key (Settings → API Keys) |
 | `PROXY_BASE_URL` | yes | Public base URL of this proxy (e.g. `https://api.stoganet.com`) — used to build `stream_url` in responses |
 | `JWT_SIGNING_KEY` | yes | Secret for HS256 JWT signing — minimum 32 bytes. Generate: `openssl rand -hex 32` |
-| `DB_PATH` | yes | SQLite file path (e.g. `/data/api-proxy.sqlite`) |
+| `DB_PATH` | yes | SQLite file path (e.g. `/data/stoganet.sqlite`) |
 | `LISTEN_ADDR` | yes | TCP address to bind (e.g. `:8080`) |
 
 ## Development
@@ -279,7 +279,7 @@ make run
 make gen      # regenerate internal/gen/ from api/openapi.yaml
 make test     # run all tests with -race
 make lint     # golangci-lint
-make build    # compile to dist/api-proxy
+make build    # compile to dist/stoganet
 make tidy     # go mod tidy
 ```
 

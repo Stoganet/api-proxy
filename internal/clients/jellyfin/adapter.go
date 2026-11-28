@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
+	"github.com/stoganet/stoganet/internal/auth"
 )
 
 var _ auth.JellyfinAuthenticator = (*authAdapter)(nil)

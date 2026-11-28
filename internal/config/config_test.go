@@ -19,7 +19,7 @@ func TestLoad_AllRequiredPresent(t *testing.T) {
 		"SEERR_URL":        "http://seerr:5055",
 		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
-		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"DB_PATH":          "/tmp/stoganet.sqlite",
 		"LISTEN_ADDR":      ":8080",
 		"PROXY_BASE_URL":   "https://api.stoganet.com",
 	}
@@ -45,7 +45,7 @@ func TestLoad_MissingProxyBaseURL_ReturnsError(t *testing.T) {
 		"SEERR_URL":        "http://seerr:5055",
 		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
-		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"DB_PATH":          "/tmp/stoganet.sqlite",
 		"LISTEN_ADDR":      ":8080",
 		// PROXY_BASE_URL intentionally absent
 	}
@@ -61,7 +61,7 @@ func TestLoad_JWTKeyTooShort(t *testing.T) {
 		"SEERR_URL":        "http://seerr:5055",
 		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "short",
-		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"DB_PATH":          "/tmp/stoganet.sqlite",
 		"LISTEN_ADDR":      ":8080",
 		"PROXY_BASE_URL":   "https://api.stoganet.com",
 	}
@@ -75,7 +75,7 @@ func TestLoad_InvalidURLs(t *testing.T) {
 		"JELLYFIN_API_KEY": "abc",
 		"SEERR_API_KEY":    "def",
 		"JWT_SIGNING_KEY":  "0123456789abcdef0123456789abcdef",
-		"DB_PATH":          "/tmp/api-proxy.sqlite",
+		"DB_PATH":          "/tmp/stoganet.sqlite",
 		"LISTEN_ADDR":      ":8080",
 	}
 

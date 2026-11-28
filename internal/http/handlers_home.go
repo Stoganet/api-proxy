@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 func (s *Server) GetHome(ctx context.Context, _ gen.GetHomeRequestObject) (gen.GetHomeResponseObject, error) {

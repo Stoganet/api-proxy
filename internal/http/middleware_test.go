@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/auth"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 func TestRequestIDMiddleware_SetsHeader(t *testing.T) {

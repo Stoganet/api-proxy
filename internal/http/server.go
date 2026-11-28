@@ -8,10 +8,10 @@ import (
 	stdhttp "net/http"
 	"strings"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/gen"
-	"github.com/Stoganet/api-proxy/internal/media"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/stoganet/stoganet/internal/auth"
+	"github.com/stoganet/stoganet/internal/gen"
+	"github.com/stoganet/stoganet/internal/media"
 )
 
 type authService interface {

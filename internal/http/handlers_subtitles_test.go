@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
+	"github.com/stoganet/stoganet/internal/auth"
 )
 
 func newSubtitleServer(t *testing.T, fa *fakeAuth, jellyfinURL string) http.Handler {

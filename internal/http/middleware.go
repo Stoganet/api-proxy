@@ -11,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 type ctxKey int

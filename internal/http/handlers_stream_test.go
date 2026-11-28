@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
+	"github.com/stoganet/stoganet/internal/auth"
 )
 
 func noopLogger() *slog.Logger {

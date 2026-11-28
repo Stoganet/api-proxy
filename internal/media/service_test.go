@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
-	"github.com/Stoganet/api-proxy/internal/clients/seerr"
+	"github.com/stoganet/stoganet/internal/clients/jellyfin"
+	"github.com/stoganet/stoganet/internal/clients/seerr"
 )
 
 type fakeSeerr struct {

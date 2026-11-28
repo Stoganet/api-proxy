@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
+	"github.com/stoganet/stoganet/internal/auth"
 )
 
 func newAdapterServer(t *testing.T, handler http.HandlerFunc) auth.JellyfinAuthenticator {

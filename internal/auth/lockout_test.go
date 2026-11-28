@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/db"
+	"github.com/stoganet/stoganet/internal/db"
 )
 
 func openTestDB(t *testing.T) *sql.DB {

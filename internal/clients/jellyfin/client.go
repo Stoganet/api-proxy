@@ -24,6 +24,6 @@ func New(baseURL, apiKey string) *Client {
 }
 
 func authHeader(deviceID string) string {
-	return `MediaBrowser Client="api-proxy", Device="api-proxy", DeviceId="` +
+	return `MediaBrowser Client="stoganet", Device="stoganet", DeviceId="` +
 		deviceID + `", Version="` + clientVersion + `"`
 }

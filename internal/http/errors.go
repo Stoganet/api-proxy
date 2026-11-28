@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	stdhttp "net/http"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 // writeError is used by middleware that has access to r but cannot return

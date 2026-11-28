@@ -1,4 +1,4 @@
-module github.com/Stoganet/api-proxy
+module github.com/stoganet/stoganet
 
 go 1.26.3
 

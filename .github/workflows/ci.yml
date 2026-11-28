@@ -87,7 +87,7 @@ jobs:
           fetch-depth: 1
 
       - name: Build image
-        run: docker build -t api-proxy:ci .
+        run: docker build -t stoganet:ci .
 
   gitleaks:
     name: gitleaks

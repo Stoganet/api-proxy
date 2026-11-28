@@ -1,16 +1,16 @@
-# Local development only. Production compose lives in Stoganet/infra.
-name: api-proxy-dev
+# Local development only. Production compose lives in stoganet/infra.
+name: stoganet-dev
 
 services:
-  api-proxy:
+  stoganet:
     build: ..
-    image: api-proxy:dev
+    image: stoganet:dev
     restart: unless-stopped
     env_file: .env
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - api-proxy_config:/data
+      - stoganet_config:/data
 
 volumes:
-  api-proxy_config:
+  stoganet_config:

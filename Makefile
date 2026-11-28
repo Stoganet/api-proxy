@@ -18,10 +18,10 @@ lint:
 	golangci-lint run
 
 build:
-	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w" -o dist/api-proxy ./cmd/api-proxy
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w" -o dist/stoganet ./cmd/stoganet
 
 run:
-	$(GO) run ./cmd/api-proxy
+	$(GO) run ./cmd/stoganet
 
 tidy:
 	$(GO) mod tidy

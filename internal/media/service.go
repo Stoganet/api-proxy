@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
-	"github.com/Stoganet/api-proxy/internal/clients/seerr"
+	"github.com/stoganet/stoganet/internal/clients/jellyfin"
+	"github.com/stoganet/stoganet/internal/clients/seerr"
 )
 
 var ErrItemNotFound = errors.New("catalog: item not found")

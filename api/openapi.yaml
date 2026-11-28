@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Stoganet api-proxy
+  title: Stoganet core
   version: 0.1.0
   description: Aggregating backend for Stoganet client apps. Current surface = auth + healthz.
 

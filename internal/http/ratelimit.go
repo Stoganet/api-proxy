@@ -6,9 +6,9 @@ import (
 	stdhttp "net/http"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 func rateLimitedResponse(w stdhttp.ResponseWriter, r *stdhttp.Request) {

@@ -36,7 +36,7 @@ func (c *Client) AuthenticateByName(ctx context.Context, username, password stri
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Emby-Authorization", authHeader("api-proxy-login"))
+	req.Header.Set("X-Emby-Authorization", authHeader("stoganet-login"))
 
 	resp, err := c.hc.Do(req)
 	if err != nil {

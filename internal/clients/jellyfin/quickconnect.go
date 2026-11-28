@@ -28,7 +28,7 @@ func (c *Client) QuickConnectInitiate(ctx context.Context) (*QuickConnectInitiat
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Emby-Authorization", authHeader("api-proxy-qc"))
+	req.Header.Set("X-Emby-Authorization", authHeader("stoganet-qc"))
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
@@ -65,7 +65,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Emby-Authorization", authHeader("api-proxy-qc"))
+	req.Header.Set("X-Emby-Authorization", authHeader("stoganet-qc"))
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
@@ -101,7 +101,7 @@ func (c *Client) QuickConnectAuthenticate(ctx context.Context, secret string) (*
 		return nil, err
 	}
 	req2.Header.Set("Content-Type", "application/json")
-	req2.Header.Set("X-Emby-Authorization", authHeader("api-proxy-qc"))
+	req2.Header.Set("X-Emby-Authorization", authHeader("stoganet-qc"))
 
 	resp2, err := c.hc.Do(req2)
 	if err != nil {

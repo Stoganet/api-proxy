@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/gen"
-	"github.com/Stoganet/api-proxy/internal/media"
+	"github.com/stoganet/stoganet/internal/auth"
+	"github.com/stoganet/stoganet/internal/gen"
+	"github.com/stoganet/stoganet/internal/media"
 )
 
 type fakeLibrary struct {

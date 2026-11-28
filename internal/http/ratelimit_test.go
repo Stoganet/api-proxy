@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 func rateLimitedHandler(t *testing.T, mw gen.StrictMiddlewareFunc, operationID string) http.Handler {

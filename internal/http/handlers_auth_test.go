@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/auth"
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/auth"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 // fakeAuth is a configurable stub for authService used in handler tests.

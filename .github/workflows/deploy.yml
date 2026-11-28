@@ -54,8 +54,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/stoganet/api-proxy:${{ steps.resolve.outputs.sha }}
-            ghcr.io/stoganet/api-proxy:latest
+            ghcr.io/stoganet/stoganet:${{ steps.resolve.outputs.sha }}
+            ghcr.io/stoganet/stoganet:latest
 
   trigger-infra-bump:
     name: trigger infra bump
@@ -69,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${INFRA_DISPATCH_TOKEN:-}" ]; then
-            echo "::error::INFRA_DISPATCH_TOKEN not set — needs contents:write on Stoganet/infra"
+            echo "::error::INFRA_DISPATCH_TOKEN not set — needs contents:write on stoganet/infra"
             exit 1
           fi
 
@@ -84,6 +84,6 @@ jobs:
           [ -n "${IMAGE_DIGEST}" ] || { echo "::error::IMAGE_DIGEST is empty"; exit 1; }
           [ -n "${TARGET_SHA}" ]   || { echo "::error::TARGET_SHA is empty"; exit 1; }
           gh api -X POST "repos/${OWNER}/infra/dispatches" \
-            -f "event_type=api-proxy-bump" \
+            -f "event_type=stoganet-bump" \
             -f "client_payload[sha]=${TARGET_SHA}" \
             -f "client_payload[digest]=${IMAGE_DIGEST}"

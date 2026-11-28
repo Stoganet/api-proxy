@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make gen      # regenerate internal/gen/ from api/openapi.yaml (run after every spec change)
 make test     # go test -race -count=1 ./...
 make lint     # golangci-lint run
-make build    # compile to dist/api-proxy
+make build    # compile to dist/stoganet
 make tidy     # go mod tidy
 
 # Run a single test

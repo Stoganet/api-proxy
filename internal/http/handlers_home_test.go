@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
-	"github.com/Stoganet/api-proxy/internal/media"
+	"github.com/stoganet/stoganet/internal/gen"
+	"github.com/stoganet/stoganet/internal/media"
 )
 
 func TestGetHome_Returns200WithSections(t *testing.T) {

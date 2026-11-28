@@ -6,7 +6,7 @@ import (
 	stdhttp "net/http"
 	"net/url"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
+	"github.com/stoganet/stoganet/internal/gen"
 )
 
 const (

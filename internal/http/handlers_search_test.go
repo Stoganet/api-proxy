@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Stoganet/api-proxy/internal/gen"
-	"github.com/Stoganet/api-proxy/internal/media"
+	"github.com/stoganet/stoganet/internal/gen"
+	"github.com/stoganet/stoganet/internal/media"
 )
 
 func authedPost(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {

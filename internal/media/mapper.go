@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Stoganet/api-proxy/internal/clients/jellyfin"
-	"github.com/Stoganet/api-proxy/internal/clients/seerr"
+	"github.com/stoganet/stoganet/internal/clients/jellyfin"
+	"github.com/stoganet/stoganet/internal/clients/seerr"
 )
 
 const tmdbImageBaseURL = "https://image.tmdb.org/t/p/w500"
